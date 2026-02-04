@@ -1,0 +1,108 @@
+<?php
+
+use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\AuthController;
+use App\Http\Controllers\AdminController;
+use App\Http\Controllers\UserController;
+use App\Http\Controllers\TeamAdminController;
+use App\Http\Controllers\RegistrationController;
+
+/*
+|--------------------------------------------------------------------------
+| Web Routes
+|--------------------------------------------------------------------------
+|
+| Here is where you can register web routes for your application. These
+| routes are loaded by the RouteServiceProvider and all of them will
+| be assigned to the "web" middleware group. Make something great!
+|
+*/
+
+Route::get('/', function () {
+    return redirect()->route('login');
+});
+
+// Auth routes (no middleware required)
+Route::get('/login', [AuthController::class, 'showLoginForm'])->name('login');
+Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:5,1')->name('login.submit');
+Route::get('/logout', [AuthController::class, 'logout'])->name('logout');
+Route::post('/logout', [AuthController::class, 'logout']);
+
+// Registration routes (user invitation)
+Route::get('/register/{token}', [RegistrationController::class, 'showRegistrationForm'])->name('register');
+Route::post('/register/{token}', [RegistrationController::class, 'register'])->name('register.submit');
+
+// 2FA Routes (no auth middleware)
+Route::get('/2fa/verify', [AuthController::class, 'showTwoFactorVerify'])->name('2fa.verify');
+Route::post('/2fa/verify', [AuthController::class, 'verifyTwoFactor'])->middleware('throttle:5,1')->name('2fa.verify.submit');
+Route::post('/2fa/resend', [AuthController::class, 'resendTwoFactorCode'])->middleware('throttle:2,1')->name('2fa.resend');
+
+// Protected routes with auth middleware
+Route::middleware(['auth'])->group(function () {
+    
+    // Admin routes (role_id = 1)
+    Route::middleware(['admin'])->prefix('admin')->name('admin.')->group(function () {
+        Route::get('/dashboard', [AdminController::class, 'dashboard'])->name('dashboard');
+        Route::get('/dashboard/table', [AdminController::class, 'dashboardTable'])->name('dashboard.table');
+        Route::get('/sales/{id}/edit', [AdminController::class, 'editSales'])->name('sales.edit');
+        Route::put('/sales/{id}', [AdminController::class, 'updateSales'])->name('sales.update');
+        Route::delete('/sales/{id}', [AdminController::class, 'deleteSales'])->name('sales.delete');
+        Route::get('/sales/{id}/transfer', [AdminController::class, 'transferSales'])->name('sales.transfer');
+        Route::post('/sales/{id}/transfer', [AdminController::class, 'processTransfer'])->name('sales.transfer.process');
+        Route::get('/sales/{id}/transfer-history', [AdminController::class, 'getTransferHistory'])->name('sales.transfer.history');
+        Route::get('/profile', [AdminController::class, 'profile'])->name('profile');
+        Route::put('/profile', [AdminController::class, 'updateProfile'])->name('profile.update');
+        Route::post('/profile/toggle-2fa', [AdminController::class, 'toggleTwoFactor'])->name('profile.toggle-2fa');
+        
+        // Company Request Management
+        Route::get('/company-requests', [\App\Http\Controllers\Admin\CompanyRequestController::class, 'index'])->name('company-requests.index');
+        Route::post('/company-requests/{id}/approve', [\App\Http\Controllers\Admin\CompanyRequestController::class, 'approve'])->name('company-requests.approve');
+        Route::post('/company-requests/{id}/reject', [\App\Http\Controllers\Admin\CompanyRequestController::class, 'reject'])->name('company-requests.reject');
+        Route::delete('/company-requests/{id}', [\App\Http\Controllers\Admin\CompanyRequestController::class, 'destroy'])->name('company-requests.destroy');
+        
+        // Master Data Management
+        Route::resource('companies', \App\Http\Controllers\Admin\CompanyController::class);
+        Route::resource('products', \App\Http\Controllers\Admin\ProductController::class);
+        Route::resource('industries', \App\Http\Controllers\Admin\IndustryController::class);
+        Route::resource('sources', \App\Http\Controllers\Admin\SourceController::class);
+        Route::resource('steps', \App\Http\Controllers\Admin\StepController::class);
+        Route::resource('priorities', \App\Http\Controllers\Admin\PriorityController::class);
+        Route::resource('teams', \App\Http\Controllers\Admin\TeamController::class);
+        Route::resource('positions', \App\Http\Controllers\Admin\PositionController::class);
+        Route::resource('users', \App\Http\Controllers\Admin\UserManagementController::class);
+        
+        // Migration Management (for shared hosting without SSH)
+        Route::get('/migration', [\App\Http\Controllers\Admin\MigrationController::class, 'index'])->name('migration.index');
+        Route::get('/migration/status', [\App\Http\Controllers\Admin\MigrationController::class, 'status'])->name('migration.status');
+        Route::post('/migration/run', [\App\Http\Controllers\Admin\MigrationController::class, 'run'])->name('migration.run');
+        Route::post('/migration/run-single/{migration}', [\App\Http\Controllers\Admin\MigrationController::class, 'runSingle'])->name('migration.run-single');
+        Route::post('/migration/rollback', [\App\Http\Controllers\Admin\MigrationController::class, 'rollback'])->name('migration.rollback');
+        Route::get('/migration/schema', [\App\Http\Controllers\Admin\MigrationController::class, 'schema'])->name('migration.schema');
+        Route::get('/migration/logs', [\App\Http\Controllers\Admin\MigrationController::class, 'logs'])->name('migration.logs');
+    });
+    
+    // Team Admin routes (role_id = 2)
+    Route::middleware(['teamadmin'])->prefix('teamadmin')->name('teamadmin.')->group(function () {
+        Route::get('/dashboard', [TeamAdminController::class, 'dashboard'])->name('dashboard');
+        Route::get('/dashboard/table', [TeamAdminController::class, 'dashboardTable'])->name('dashboard.table');
+        Route::get('/sales/{id}/edit', [TeamAdminController::class, 'editSales'])->name('sales.edit');
+        Route::put('/sales/{id}', [TeamAdminController::class, 'updateSales'])->name('sales.update');
+        Route::get('/profile', [TeamAdminController::class, 'profile'])->name('profile');
+        Route::put('/profile', [TeamAdminController::class, 'updateProfile'])->name('profile.update');
+        Route::post('/profile/toggle-2fa', [TeamAdminController::class, 'toggleTwoFactor'])->name('profile.toggle-2fa');
+    });
+    
+    // User routes (role_id = 3)
+    Route::middleware(['user'])->prefix('user')->name('user.')->group(function () {
+        Route::get('/dashboard', [UserController::class, 'dashboard'])->name('dashboard');
+        Route::get('/dashboard/table', [UserController::class, 'dashboardTable'])->name('dashboard.table');
+        Route::get('/sales/create', [UserController::class, 'createSales'])->name('sales.create');
+        Route::post('/sales', [UserController::class, 'storeSales'])->name('sales.store');
+        Route::get('/sales/{id}/edit', [UserController::class, 'editSales'])->name('sales.edit');
+        Route::put('/sales/{id}', [UserController::class, 'updateSales'])->name('sales.update');
+        Route::get('/profile', [UserController::class, 'profile'])->name('profile');
+        Route::put('/profile', [UserController::class, 'updateProfile'])->name('profile.update');
+        Route::post('/profile/toggle-2fa', [UserController::class, 'toggleTwoFactor'])->name('profile.toggle-2fa');
+        Route::post('/company-request', [UserController::class, 'requestCompany'])->name('company.request');
+    });
+});
