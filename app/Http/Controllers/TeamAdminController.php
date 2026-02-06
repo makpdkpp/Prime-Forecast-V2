@@ -385,6 +385,10 @@ class TeamAdminController extends Controller
                 'date_of_closing_of_sale' => $request->date_of_closing_of_sale,
                 'sales_can_be_close' => $request->sales_can_be_close,
                 'remark' => $request->remark ?? '',
+                'contact_person' => $request->contact_person,
+                'contact_phone' => $request->contact_phone,
+                'contact_email' => $request->contact_email,
+                'contact_note' => $request->contact_note,
                 'Step_id' => $stepId ?? $transaction->Step_id,
             ]);
 

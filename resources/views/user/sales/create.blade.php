@@ -148,6 +148,34 @@
                             </div>
                         </div>
 
+                        <div class="card mt-3">
+                            <div class="card-header bg-light">
+                                <h5 class="card-title mb-0"><i class="fas fa-user-tie"></i> ข้อมูลลูกค้า (ไม่บังคับ)</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-4 form-group">
+                                        <label for="contact_person">ชื่อผู้ติดต่อ</label>
+                                        <input type="text" name="contact_person" id="contact_person" class="form-control" placeholder="ชื่อ-นามสกุล">
+                                    </div>
+                                    <div class="col-md-4 form-group">
+                                        <label for="contact_phone">เบอร์โทรศัพท์</label>
+                                        <input type="text" name="contact_phone" id="contact_phone" class="form-control" placeholder="0xx-xxx-xxxx">
+                                    </div>
+                                    <div class="col-md-4 form-group">
+                                        <label for="contact_email">อีเมล</label>
+                                        <input type="email" name="contact_email" id="contact_email" class="form-control" placeholder="email@example.com">
+                                    </div>
+                                </div>
+                                <div class="row">
+                                    <div class="col-sm-12 form-group">
+                                        <label for="contact_note">อื่นๆ</label>
+                                        <textarea name="contact_note" id="contact_note" rows="2" class="form-control" placeholder="รายละเอียดเพิ่มเติมเกี่ยวกับลูกค้า"></textarea>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
                         <div class="text-right mt-4">
                             <a href="{{ route('user.dashboard') }}" class="btn btn-secondary">กลับหน้าหลัก</a>
                             <button type="submit" class="btn btn-danger">บันทึกข้อมูล</button>
