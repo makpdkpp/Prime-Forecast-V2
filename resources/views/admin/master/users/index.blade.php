@@ -14,6 +14,13 @@
         </div>
     @endif
 
+    @if(session('error'))
+        <div class="alert alert-danger alert-dismissible fade show">
+            {{ session('error') }}
+            <button type="button" class="close" data-dismiss="alert">&times;</button>
+        </div>
+    @endif
+
     <div class="card">
         <div class="card-header">
             <h3 class="card-title">รายการผู้ใช้งานทั้งหมด</h3>
@@ -54,13 +61,26 @@
                             @endif
                         </td>
                         <td>
-                            <a href="{{ route('admin.users.edit', $user->user_id) }}" class="btn btn-sm btn-info">
+                            <a href="{{ route('admin.users.edit', $user->user_id) }}" class="btn btn-sm btn-info" title="แก้ไข">
                                 <i class="fas fa-edit"></i>
                             </a>
+                            <form action="{{ route('admin.users.toggle-status', $user->user_id) }}" method="POST" style="display:inline;">
+                                @csrf
+                                @method('PATCH')
+                                @if($user->is_active)
+                                    <button type="submit" class="btn btn-sm btn-warning" title="ปิดใช้งาน" onclick="return confirm('ยืนยันการปิดใช้งานผู้ใช้นี้?')">
+                                        <i class="fas fa-user-slash"></i>
+                                    </button>
+                                @else
+                                    <button type="submit" class="btn btn-sm btn-success" title="เปิดใช้งาน" onclick="return confirm('ยืนยันการเปิดใช้งานผู้ใช้นี้?')">
+                                        <i class="fas fa-user-check"></i>
+                                    </button>
+                                @endif
+                            </form>
                             <form action="{{ route('admin.users.destroy', $user->user_id) }}" method="POST" style="display:inline;" onsubmit="return confirm('ยืนยันการลบ?')">
                                 @csrf
                                 @method('DELETE')
-                                <button type="submit" class="btn btn-sm btn-danger">
+                                <button type="submit" class="btn btn-sm btn-danger" title="ลบ">
                                     <i class="fas fa-trash"></i>
                                 </button>
                             </form>

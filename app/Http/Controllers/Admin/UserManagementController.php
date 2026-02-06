@@ -179,4 +179,22 @@ class UserManagementController extends Controller
 
         return redirect()->route('admin.users.index')->with('success', 'ลบผู้ใช้งานเรียบร้อยแล้ว');
     }
+
+    public function toggleStatus($id)
+    {
+        $user = User::findOrFail($id);
+        
+        // Prevent admin from disabling themselves
+        if ($user->user_id === auth()->id()) {
+            return redirect()->route('admin.users.index')
+                ->with('error', 'ไม่สามารถปิดใช้งานบัญชีของตัวเองได้');
+        }
+        
+        $user->is_active = !$user->is_active;
+        $user->save();
+        
+        $status = $user->is_active ? 'เปิดใช้งาน' : 'ปิดใช้งาน';
+        return redirect()->route('admin.users.index')
+            ->with('success', "เปลี่ยนสถานะผู้ใช้ {$user->nname} เป็น {$status} แล้ว");
+    }
 }

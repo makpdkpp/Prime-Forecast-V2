@@ -70,6 +70,7 @@ Route::middleware(['auth'])->group(function () {
         Route::resource('teams', \App\Http\Controllers\Admin\TeamController::class);
         Route::resource('positions', \App\Http\Controllers\Admin\PositionController::class);
         Route::resource('users', \App\Http\Controllers\Admin\UserManagementController::class);
+        Route::patch('/users/{user}/toggle-status', [\App\Http\Controllers\Admin\UserManagementController::class, 'toggleStatus'])->name('users.toggle-status');
         
         // Migration Management (for shared hosting without SSH)
         Route::get('/migration', [\App\Http\Controllers\Admin\MigrationController::class, 'index'])->name('migration.index');
