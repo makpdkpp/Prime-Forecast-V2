@@ -123,7 +123,26 @@
                     </thead>
                     <tbody>
                         @foreach($transactions as $t)
-                        <tr>
+                        <tr class="clickable-row" style="cursor: pointer;"
+                            data-id="{{ $t->transac_id }}"
+                            data-project="{{ $t->Product_detail }}"
+                            data-company="{{ $t->company->company ?? '-' }}"
+                            data-value="{{ number_format($t->product_value) }}"
+                            data-status="{{ $t->latestStep->step->level ?? '-' }}"
+                            data-priority="{{ $t->priority->priority ?? '-' }}"
+                            data-year="{{ $t->fiscalyear }}"
+                            data-start="{{ $t->contact_start_date }}"
+                            data-bidding="{{ $t->date_of_closing_of_sale }}"
+                            data-contract="{{ $t->sales_can_be_close }}"
+                            data-product="{{ $t->productGroup->product ?? '-' }}"
+                            data-user="{{ $t->user->nname ?? '' }} {{ $t->user->surename ?? '' }}"
+                            data-team="{{ $t->team->team ?? '-' }}"
+                            data-source="{{ $t->sourceBudget->Source_budge ?? '-' }}"
+                            data-contact-person="{{ $t->contact_person ?? '-' }}"
+                            data-contact-phone="{{ $t->contact_phone ?? '-' }}"
+                            data-contact-email="{{ $t->contact_email ?? '-' }}"
+                            data-contact-note="{{ $t->contact_note ?? '-' }}"
+                            data-remark="{{ $t->remark }}">
                             <td>{{ $t->Product_detail }}</td>
                             <td>{{ $t->company->company ?? '-' }}</td>
                             <td>{{ number_format($t->product_value) }}</td>
@@ -146,6 +165,104 @@
                         @endforeach
                     </tbody>
                 </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- View Detail Modal -->
+    <div class="modal fade" id="viewDetailModal" tabindex="-1" role="dialog" aria-labelledby="viewDetailModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg" role="document">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title" id="viewDetailModalLabel"><i class="fas fa-info-circle"></i> รายละเอียดข้อมูลการขาย</h5>
+                    <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-12 mb-3">
+                            <h5 class="text-primary" id="modal-project"></h5>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="card card-outline card-info mb-3">
+                                <div class="card-header py-2"><strong><i class="fas fa-building"></i> ข้อมูลโครงการ</strong></div>
+                                <div class="card-body py-2">
+                                    <p class="mb-1"><strong>หน่วยงาน/บริษัท:</strong> <span id="modal-company"></span></p>
+                                    <p class="mb-1"><strong>มูลค่า:</strong> <span id="modal-value" class="text-success font-weight-bold"></span> บาท</p>
+                                    <p class="mb-1"><strong>กลุ่มสินค้า:</strong> <span id="modal-product"></span></p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card card-outline card-warning mb-3">
+                                <div class="card-header py-2"><strong><i class="fas fa-coins"></i> งบประมาณ</strong></div>
+                                <div class="card-body py-2">
+                                    <p class="mb-1"><strong>แหล่งงบประมาณ:</strong> <span id="modal-source"></span></p>
+                                    <p class="mb-1"><strong>ปีงบประมาณ:</strong> <span id="modal-year"></span></p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="card card-outline card-success mb-3">
+                                <div class="card-header py-2"><strong><i class="fas fa-calendar-alt"></i> วันที่สำคัญ</strong></div>
+                                <div class="card-body py-2">
+                                    <p class="mb-1"><strong>วันที่เริ่ม:</strong> <span id="modal-start"></span></p>
+                                    <p class="mb-1"><strong>วันยื่น Bidding:</strong> <span id="modal-bidding"></span></p>
+                                    <p class="mb-1"><strong>วันเซ็นสัญญา:</strong> <span id="modal-contract"></span></p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card card-outline card-danger mb-3">
+                                <div class="card-header py-2"><strong><i class="fas fa-chart-line"></i> สถานะ</strong></div>
+                                <div class="card-body py-2">
+                                    <p class="mb-1"><strong>สถานะปัจจุบัน:</strong> <span id="modal-status" class="badge badge-info"></span></p>
+                                    <p class="mb-1"><strong>โอกาสชนะ:</strong> <span id="modal-priority"></span></p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="card card-outline card-secondary mb-3">
+                                <div class="card-header py-2"><strong><i class="fas fa-users"></i> ผู้รับผิดชอบ</strong></div>
+                                <div class="card-body py-2">
+                                    <p class="mb-1"><strong>ชื่อผู้ใช้:</strong> <span id="modal-user"></span></p>
+                                    <p class="mb-1"><strong>ทีม:</strong> <span id="modal-team"></span></p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card card-outline card-primary mb-3">
+                                <div class="card-header py-2"><strong><i class="fas fa-user-tie"></i> ข้อมูลลูกค้า</strong></div>
+                                <div class="card-body py-2">
+                                    <p class="mb-1"><strong>ชื่อผู้ติดต่อ:</strong> <span id="modal-contact-person"></span></p>
+                                    <p class="mb-1"><strong>เบอร์โทร:</strong> <span id="modal-contact-phone"></span></p>
+                                    <p class="mb-1"><strong>อีเมล:</strong> <span id="modal-contact-email"></span></p>
+                                    <p class="mb-1"><strong>อื่นๆ:</strong> <span id="modal-contact-note"></span></p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-12">
+                            <div class="card card-outline card-dark">
+                                <div class="card-header py-2"><strong><i class="fas fa-sticky-note"></i> หมายเหตุ</strong></div>
+                                <div class="card-body py-2">
+                                    <p class="mb-0" id="modal-remark"></p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">ปิด</button>
+                </div>
             </div>
         </div>
     </div>
@@ -188,6 +305,34 @@ $(function () {
             }
         ],
         "order": [[0, 'desc']]
+    });
+
+    // Row click to show detail modal
+    $('#salesTable tbody').on('click', 'tr.clickable-row', function(e) {
+        // Don't trigger if clicking on action buttons
+        if ($(e.target).closest('td:last-child').length) return;
+        
+        var row = $(this);
+        $('#modal-project').text(row.data('project'));
+        $('#modal-company').text(row.data('company'));
+        $('#modal-value').text(row.data('value'));
+        $('#modal-status').text(row.data('status'));
+        $('#modal-priority').text(row.data('priority'));
+        $('#modal-year').text(row.data('year'));
+        $('#modal-start').text(row.data('start') || '-');
+        $('#modal-bidding').text(row.data('bidding') || '-');
+        $('#modal-contract').text(row.data('contract') || '-');
+        $('#modal-product').text(row.data('product'));
+        $('#modal-user').text(row.data('user'));
+        $('#modal-team').text(row.data('team'));
+        $('#modal-source').text(row.data('source'));
+        $('#modal-contact-person').text(row.data('contact-person'));
+        $('#modal-contact-phone').text(row.data('contact-phone'));
+        $('#modal-contact-email').text(row.data('contact-email'));
+        $('#modal-contact-note').text(row.data('contact-note'));
+        $('#modal-remark').text(row.data('remark') || '-');
+        
+        $('#viewDetailModal').modal('show');
     });
 });
 </script>
