@@ -195,6 +195,34 @@
                             </div>
                         </div>
 
+                        <div class="card mt-3">
+                            <div class="card-header bg-light">
+                                <h5 class="card-title mb-0"><i class="fas fa-user-tie"></i> ข้อมูลลูกค้า (ไม่บังคับ)</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-4 form-group">
+                                        <label for="contact_person">ชื่อผู้ติดต่อ</label>
+                                        <input type="text" name="contact_person" id="contact_person" class="form-control" value="{{ old('contact_person', $transaction->contact_person) }}" placeholder="ชื่อ-นามสกุล">
+                                    </div>
+                                    <div class="col-md-4 form-group">
+                                        <label for="contact_phone">เบอร์โทรศัพท์</label>
+                                        <input type="text" name="contact_phone" id="contact_phone" class="form-control" value="{{ old('contact_phone', $transaction->contact_phone) }}" placeholder="0xx-xxx-xxxx">
+                                    </div>
+                                    <div class="col-md-4 form-group">
+                                        <label for="contact_email">อีเมล</label>
+                                        <input type="email" name="contact_email" id="contact_email" class="form-control" value="{{ old('contact_email', $transaction->contact_email) }}" placeholder="email@example.com">
+                                    </div>
+                                </div>
+                                <div class="row">
+                                    <div class="col-sm-12 form-group">
+                                        <label for="contact_note">อื่นๆ</label>
+                                        <textarea name="contact_note" id="contact_note" rows="2" class="form-control" placeholder="รายละเอียดเพิ่มเติมเกี่ยวกับลูกค้า">{{ old('contact_note', $transaction->contact_note) }}</textarea>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
                         <div class="text-right mt-4">
                             <a href="{{ route('user.dashboard.table') }}" class="btn btn-secondary">ยกเลิก</a>
                             <button type="submit" class="btn btn-primary">บันทึกการแก้ไข</button>

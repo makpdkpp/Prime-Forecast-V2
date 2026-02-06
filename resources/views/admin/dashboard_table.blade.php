@@ -110,6 +110,9 @@
                             <th>กลุ่มสินค้า</th>
                             <th>ชื่อผู้ใช้</th>
                             <th>ทีม</th>
+                            <th>ผู้ติดต่อ</th>
+                            <th>เบอร์โทร</th>
+                            <th>อีเมล</th>
                             <th>หมายเหตุ</th>
                             <th>Action</th>
                         </tr>
@@ -129,6 +132,9 @@
                             <td>{{ $t->productGroup->product ?? '-' }}</td>
                             <td>{{ $t->user->nname ?? '' }} {{ $t->user->surename ?? '' }}</td>
                             <td>{{ $t->team->team ?? '-' }}</td>
+                            <td>{{ $t->contact_person ?? '-' }}</td>
+                            <td>{{ $t->contact_phone ?? '-' }}</td>
+                            <td>{{ $t->contact_email ?? '-' }}</td>
                             <td>{{ $t->remark }}</td>
                             <td class="text-center">
                                 <a href="{{ route('admin.sales.edit', $t->transac_id) }}" class="btn btn-sm btn-info" title="แก้ไข">
