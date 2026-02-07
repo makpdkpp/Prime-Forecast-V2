@@ -110,9 +110,9 @@
                         <td>{{ $t->productGroup->product ?? '-' }}</td>
                         <td>{{ $t->team->team ?? '-' }}</td>
                         <td>{{ $t->priority->priority ?? '-' }}</td>
-                        <td>{{ $t->contact_start_date }}</td>
-                        <td>{{ $t->date_of_closing_of_sale }}</td>
-                        <td>{{ $t->sales_can_be_close }}</td>
+                        <td>{{ thaiDate($t->contact_start_date) }}</td>
+                        <td>{{ thaiDate($t->date_of_closing_of_sale) }}</td>
+                        <td>{{ thaiDate($t->sales_can_be_close) }}</td>
                         <td>{{ $t->latestStep->step->level ?? '-' }}</td>
                         <td>{{ $t->remark }}</td>
                         <td class="text-center">

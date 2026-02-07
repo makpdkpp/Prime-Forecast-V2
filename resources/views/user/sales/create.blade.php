@@ -107,15 +107,15 @@
                         <div class="row">
                             <div class="col-md-4 form-group">
                                 <label for="contact_start_date">วันที่เริ่มโครงการ</label>
-                                <input type="date" name="contact_start_date" id="contact_start_date" class="form-control" required>
+                                <input type="text" name="contact_start_date" id="contact_start_date" class="form-control flatpickr-thai" required readonly>
                             </div>
                             <div class="col-md-4 form-group">
                                 <label for="date_of_closing_of_sale">วันที่คาดว่าจะ Bidding</label>
-                                <input type="date" name="date_of_closing_of_sale" id="date_of_closing_of_sale" class="form-control">
+                                <input type="text" name="date_of_closing_of_sale" id="date_of_closing_of_sale" class="form-control flatpickr-thai" readonly>
                             </div>
                             <div class="col-md-4 form-group">
                                 <label for="sales_can_be_close">วันที่คาดจะเซ็นสัญญา</label>
-                                <input type="date" name="sales_can_be_close" id="sales_can_be_close" class="form-control">
+                                <input type="text" name="sales_can_be_close" id="sales_can_be_close" class="form-control flatpickr-thai" readonly>
                             </div>
                         </div>
 
@@ -134,7 +134,7 @@
                                                 <input type="checkbox" id="step_cb_{{ $step->level_id }}" name="step[{{ $step->level_id }}]" value="{{ $step->level_id }}" onchange="toggleDate('{{ $step->level_id }}')">
                                                 <label for="step_cb_{{ $step->level_id }}" style="margin-bottom: 0; font-weight: normal !important;">{{ $step->level }}</label>
                                             </div>
-                                            <input type="date" class="form-control form-control-sm ml-2" id="step_date_{{ $step->level_id }}" name="step_date[{{ $step->level_id }}]" style="width: auto;" disabled>
+                                            <input type="text" class="form-control form-control-sm ml-2 flatpickr-step" id="step_date_{{ $step->level_id }}" name="step_date[{{ $step->level_id }}]" style="width: auto;" disabled readonly>
                                         </div>
                                     </div>
                                 @endforeach
@@ -192,16 +192,96 @@
 @stop
 
 @section('js')
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 <script>
-/* จัดรูปแบบตัวเลขใส่ comma */
-(function() {
-    const f = document.getElementById('product_value');
+    function initThaiDatePicker(selector) {
+        flatpickr(selector, {
+            dateFormat: 'd/m/Y',
+            locale: {
+                firstDayOfWeek: 1,
+                weekdays: {
+                    shorthand: ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส'],
+                    longhand: ['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์']
+                },
+                months: {
+                    shorthand: ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'],
+                    longhand: ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม']
+                }
+            },
+            onChange: function(selectedDates, dateStr, instance) {
+                if (selectedDates.length > 0) {
+                    const date = selectedDates[0];
+                    const day = String(date.getDate()).padStart(2, '0');
+                    const month = String(date.getMonth() + 1).padStart(2, '0');
+                    const year = date.getFullYear() + 543;
+                    instance.input.value = `${day}/${month}/${year}`;
+                }
+            }
+        });
+    }
+    
+    // Initialize Thai date pickers
+    initThaiDatePicker('#contact_start_date');
+    initThaiDatePicker('#date_of_closing_of_sale');
+    initThaiDatePicker('#sales_can_be_close');
+    
+    // Initialize Flatpickr for step dates
+    document.querySelectorAll('.flatpickr-step').forEach(function(input) {
+        flatpickr(input, {
+            dateFormat: 'd/m/Y',
+            locale: {
+                firstDayOfWeek: 1,
+                weekdays: {
+                    shorthand: ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส'],
+                    longhand: ['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์']
+                },
+                months: {
+                    shorthand: ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'],
+                    longhand: ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม']
+                }
+            },
+            onChange: function(selectedDates, dateStr, instance) {
+                if (selectedDates.length > 0) {
+                    const date = selectedDates[0];
+                    const day = String(date.getDate()).padStart(2, '0');
+                    const month = String(date.getMonth() + 1).padStart(2, '0');
+                    const year = date.getFullYear() + 543;
+                    instance.input.value = `${day}/${month}/${year}`;
+                }
+            }
+        });
+    });
+
+    // Convert Thai date back to YYYY-MM-DD before form submission
+    document.getElementById('salesForm').addEventListener('submit', function() {
+        document.querySelectorAll('.flatpickr-thai, .flatpickr-step').forEach(function(input) {
+            const thaiDate = input.value;
+            if (thaiDate && thaiDate.includes('/')) {
+                const parts = thaiDate.split('/');
+                if (parts.length === 3) {
+                    const day = parts[0];
+                    const month = parts[1];
+                    const buddhistYear = parseInt(parts[2]);
+                    const christianYear = buddhistYear - 543;
+                    input.value = `${christianYear}-${month}-${day}`;
+                }
+            }
+        });
+    });
+
+    // Product value formatting
+    const productValueInput = document.getElementById('product_value');
     const fmt = function(v) {
         v = v.replace(/[^0-9.]/g, '');
         if (!v) return '';
         const parts = v.split('.');
         return (+parts[0]).toLocaleString('en-US') + (parts[1] ? '.' + parts[1].slice(0, 2) : '');
     };
+    productValueInput.addEventListener('input', function() {
+        const p = productValueInput.selectionStart;
+        const l = productValueInput.value.length;
+        productValueInput.value = fmt(productValueInput.value);
+        productValueInput.setSelectionRange(p + (productValueInput.value.length - l), p + (productValueInput.value.length - l));
     f.addEventListener('input', function() {
         const p = f.selectionStart;
         const l = f.value.length;
@@ -271,6 +351,7 @@ $('#companyRequestForm').on('submit', function(e) {
 @stop
 
 @section('css')
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
 <style>
     .process-item {
         display: flex;

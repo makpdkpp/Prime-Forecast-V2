@@ -38,9 +38,7 @@
                                 <select name="year" class="form-control form-control-sm">
                                     <option value="">ทุกปี</option>
                                     @foreach($availableYears as $y)
-                                        <option value="{{ $y }}" {{ request('year') == $y ? 'selected' : '' }}>
-                                            {{ $y }}
-                                        </option>
+                                        <option value="{{ $y }}" {{ request('year') == $y ? 'selected' : '' }}>{{ $y + 543 }}</option>
                                     @endforeach
                                 </select>
                             </div>

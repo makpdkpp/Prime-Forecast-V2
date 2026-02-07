@@ -149,9 +149,9 @@
                             <td>{{ $t->latestStep->step->level ?? '-' }}</td>
                             <td>{{ $t->priority->priority ?? '-' }}</td>
                             <td>{{ $t->fiscalyear }}</td>
-                            <td>{{ $t->contact_start_date }}</td>
-                            <td>{{ $t->date_of_closing_of_sale }}</td>
-                            <td>{{ $t->sales_can_be_close }}</td>
+                            <td>{{ thaiDate($t->contact_start_date) }}</td>
+                            <td>{{ thaiDate($t->date_of_closing_of_sale) }}</td>
+                            <td>{{ thaiDate($t->sales_can_be_close) }}</td>
                             <td>{{ $t->productGroup->product ?? '-' }}</td>
                             <td>{{ $t->user->nname ?? '' }} {{ $t->user->surename ?? '' }}</td>
                             <td>{{ $t->team->team ?? '-' }}</td>
@@ -319,9 +319,9 @@ $(function () {
         $('#modal-status').text(row.data('status'));
         $('#modal-priority').text(row.data('priority'));
         $('#modal-year').text(row.data('year'));
-        $('#modal-start').text(row.data('start') || '-');
-        $('#modal-bidding').text(row.data('bidding') || '-');
-        $('#modal-contract').text(row.data('contract') || '-');
+        $('#modal-start').text(row.data('start') ? formatThaiDate(row.data('start')) : '-');
+        $('#modal-bidding').text(row.data('bidding') ? formatThaiDate(row.data('bidding')) : '-');
+        $('#modal-contract').text(row.data('contract') ? formatThaiDate(row.data('contract')) : '-');
         $('#modal-product').text(row.data('product'));
         $('#modal-user').text(row.data('user'));
         $('#modal-team').text(row.data('team'));
@@ -334,6 +334,20 @@ $(function () {
         
         $('#viewDetailModal').modal('show');
     });
+
+    // Helper function to format date to Thai format
+    function formatThaiDate(dateStr) {
+        if (!dateStr || dateStr === '-') return '-';
+        try {
+            const date = new Date(dateStr);
+            const day = String(date.getDate()).padStart(2, '0');
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const year = date.getFullYear() + 543;
+            return `${day}/${month}/${year}`;
+        } catch (e) {
+            return dateStr;
+        }
+    }
 });
 </script>
 @stop
