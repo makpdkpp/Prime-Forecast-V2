@@ -3,17 +3,89 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Mail\PasswordResetLink;
 use App\Mail\TwoFactorCode;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Str;
 
 class AuthController extends Controller
 {
     public function showLoginForm()
     {
         return view('auth.login');
+    }
+
+    public function showForgotPasswordForm()
+    {
+        return view('auth.forgot-password');
+    }
+
+    public function sendResetPasswordLink(Request $request)
+    {
+        $data = $request->validate([
+            'email' => ['required', 'email'],
+        ]);
+
+        $user = User::query()->where('email', $data['email'])->first();
+
+        if ($user) {
+            $token = Str::random(64);
+
+            $user->update([
+                'reset_token' => $token,
+                'token_expiry' => now()->addHour(),
+            ]);
+
+            Mail::to($user->email)->send(new PasswordResetLink($user, $token));
+        }
+
+        return back()->with('success', 'หากอีเมลนี้มีอยู่ในระบบ เราได้ส่งลิงก์สำหรับรีเซ็ตรหัสผ่านให้แล้ว');
+    }
+
+    public function showResetPasswordForm(string $token, Request $request)
+    {
+        $email = (string) $request->query('email', '');
+
+        $user = User::query()
+            ->where('email', $email)
+            ->where('reset_token', $token)
+            ->where('token_expiry', '>', now())
+            ->first();
+
+        if (!$user) {
+            return redirect()->route('password.request')->with('error', 'ลิงก์รีเซ็ตรหัสผ่านไม่ถูกต้องหรือหมดอายุ');
+        }
+
+        return view('auth.reset-password', compact('token', 'email'));
+    }
+
+    public function resetPassword(string $token, Request $request)
+    {
+        $data = $request->validate([
+            'email' => ['required', 'email'],
+            'password' => ['required', 'string', 'min:6', 'confirmed'],
+        ]);
+
+        $user = User::query()
+            ->where('email', $data['email'])
+            ->where('reset_token', $token)
+            ->where('token_expiry', '>', now())
+            ->first();
+
+        if (!$user) {
+            return redirect()->route('password.request')->with('error', 'ลิงก์รีเซ็ตรหัสผ่านไม่ถูกต้องหรือหมดอายุ');
+        }
+
+        $user->update([
+            'password' => Hash::make($data['password']),
+            'reset_token' => '',
+            'token_expiry' => null,
+        ]);
+
+        return redirect()->route('login')->with('success', 'รีเซ็ตรหัสผ่านเรียบร้อยแล้ว กรุณาเข้าสู่ระบบ');
     }
 
     public function login(Request $request)

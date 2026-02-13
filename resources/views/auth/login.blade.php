@@ -180,7 +180,7 @@
                     <input type="password" name="password" class="form-control" id="password" placeholder="Password" required>
                 </div>
                 <div class="d-flex justify-content-end mb-3">
-                    <a href="#" class="text-link">ลืมรหัสผ่าน?</a>
+                    <a href="{{ route('password.request') }}" class="text-link">ลืมรหัสผ่าน?</a>
                 </div>
                 <button type="submit" class="btn btn-login" id="loginBtn">
                     <span id="loginBtnText">เข้าสู่ระบบ</span>
