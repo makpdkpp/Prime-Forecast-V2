@@ -72,12 +72,7 @@ class AuthController extends Controller
         Auth::login($user);
         $request->session()->regenerate();
 
-        return match ((int) $user->role_id) {
-            1 => redirect()->route('admin.dashboard'),
-            2 => redirect()->route('teamadmin.dashboard'),
-            3 => redirect()->route('user.dashboard'),
-            default => redirect()->route('login'),
-        };
+        return redirect()->route('postlogin.loading');
     }
 
     public function logout(Request $request)
@@ -135,13 +130,26 @@ class AuthController extends Controller
         
         Auth::login($user);
         $request->session()->regenerate();
-        
-        return match ((int) $user->role_id) {
-            1 => redirect()->route('admin.dashboard'),
-            2 => redirect()->route('teamadmin.dashboard'),
-            3 => redirect()->route('user.dashboard'),
-            default => redirect()->route('login'),
+
+        return redirect()->route('postlogin.loading');
+    }
+
+    public function postLoginLoading(Request $request)
+    {
+        $user = Auth::user();
+
+        if (!$user) {
+            return redirect()->route('login');
+        }
+
+        $targetUrl = match ((int) $user->role_id) {
+            1 => route('admin.dashboard'),
+            2 => route('teamadmin.dashboard'),
+            3 => route('user.dashboard'),
+            default => route('login'),
         };
+
+        return view('auth.post-login-loading', compact('targetUrl'));
     }
 
     public function resendTwoFactorCode(Request $request)

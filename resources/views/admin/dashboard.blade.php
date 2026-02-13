@@ -259,6 +259,52 @@
             </div>
         </div>
     </div>
+    <!-- Modal: Generic Chart Detail -->
+    <div class="modal fade" id="chartDetailModal" tabindex="-1" role="dialog">
+        <div class="modal-dialog modal-xl" role="document">
+            <div class="modal-content">
+                <div class="modal-header bg-info">
+                    <h5 class="modal-title text-white"><i class="fas fa-chart-bar"></i> <span id="chartDetailTitle"></span></h5>
+                    <button type="button" class="close text-white" data-dismiss="modal"><span>&times;</span></button>
+                </div>
+                <div class="modal-body">
+                    <div id="chartDetailLoading" class="text-center py-4" style="display:none;">
+                        <i class="fas fa-spinner fa-spin fa-2x"></i>
+                        <p class="mt-2">กำลังโหลดข้อมูล...</p>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover table-sm" id="chartDetailTable" style="display:none;">
+                            <thead class="thead-dark">
+                                <tr>
+                                    <th>#</th>
+                                    <th>โปรเจค</th>
+                                    <th>ลูกค้า</th>
+                                    <th>กลุ่มสินค้า</th>
+                                    <th>พนักงาน</th>
+                                    <th>ทีม</th>
+                                    <th>สถานะ</th>
+                                    <th class="text-right">มูลค่า (บาท)</th>
+                                    <th>วันที่เริ่ม</th>
+                                </tr>
+                            </thead>
+                            <tbody id="chartDetailBody"></tbody>
+                            <tfoot>
+                                <tr class="font-weight-bold bg-light">
+                                    <td colspan="7" class="text-right">รวมทั้งหมด</td>
+                                    <td class="text-right" id="chartDetailTotal"></td>
+                                    <td></td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                    <div id="chartDetailEmpty" class="text-center text-muted py-4" style="display:none;">
+                        <i class="fas fa-inbox fa-2x"></i>
+                        <p class="mt-2">ไม่พบข้อมูล</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 @stop
 
 @section('js')
@@ -273,6 +319,38 @@
     const topProductsData = @json($topProducts);
     const targetForecastWinData = @json($targetForecastWin);
     const topCustomersData = @json($topCustomers);
+
+    const chartIds = [
+        'winstatusValueChart',
+        'teamSumChart',
+        'personSumChart',
+        'salestatusChart',
+        'statusValueChart',
+        'targetForecastWinChart',
+        'topProductsChart',
+        'topCustomerChart'
+    ];
+
+    function injectChartSkeletons() {
+        chartIds.forEach((id) => {
+            const canvas = document.getElementById(id);
+            if (!canvas || !canvas.parentElement) return;
+            const host = canvas.parentElement;
+            host.classList.add('chart-host');
+            if (host.querySelector('[data-chart-skeleton]')) return;
+            const skeleton = document.createElement('div');
+            skeleton.className = 'chart-skeleton';
+            skeleton.setAttribute('data-chart-skeleton', id);
+            skeleton.innerHTML = '<div class="chart-skeleton-bar"></div><div class="chart-skeleton-bar w-75"></div><div class="chart-skeleton-bar w-50"></div>';
+            host.appendChild(skeleton);
+        });
+    }
+
+    function renderWithSkeleton(id, renderFn) {
+        renderFn();
+        const skeleton = document.querySelector('[data-chart-skeleton="' + id + '"]');
+        if (skeleton) skeleton.classList.add('loaded');
+    }
 
     // Win Status Value Chart (Cumulative Win by Month)
     function renderWinStatusValueChart(data) {
@@ -294,6 +372,12 @@
             },
             options: {
                 responsive: true,
+                onClick: function(evt, elements) {
+                    if (elements.length === 0) return;
+                    const idx = elements[0].index;
+                    const month = data[idx].sale_month;
+                    showChartDetail('month', month, 'ยอดขาย Win เดือน ' + month);
+                },
                 scales: {
                     y: {
                         beginAtZero: true,
@@ -357,6 +441,12 @@
             },
             options: {
                 responsive: true,
+                onClick: function(evt, elements) {
+                    if (elements.length === 0) return;
+                    const idx = elements[0].index;
+                    const item = data[idx];
+                    showChartDetail('team', item.team_id, 'ยอดขายทีม: ' + item.team);
+                },
                 scales: {
                     y: {
                         beginAtZero: true,
@@ -497,6 +587,62 @@
             });
     }
 
+    // Generic Chart Detail Popup
+    function showChartDetail(type, value, title, value2) {
+        const modal = $('#chartDetailModal');
+        const loading = $('#chartDetailLoading');
+        const table = $('#chartDetailTable');
+        const tbody = $('#chartDetailBody');
+        const total = $('#chartDetailTotal');
+        const empty = $('#chartDetailEmpty');
+
+        $('#chartDetailTitle').text(title);
+        loading.show();
+        table.hide();
+        empty.hide();
+        tbody.empty();
+        modal.modal('show');
+
+        const params = new URLSearchParams(window.location.search);
+        params.set('type', type);
+        params.set('value', value);
+        if (value2) params.set('value2', value2);
+
+        fetch('/admin/dashboard/chart-detail?' + params.toString())
+            .then(res => res.json())
+            .then(projects => {
+                loading.hide();
+                if (!projects.length) {
+                    empty.show();
+                    return;
+                }
+                let sumValue = 0;
+                projects.forEach((p, i) => {
+                    const val = Number(p.product_value) || 0;
+                    sumValue += val;
+                    tbody.append(`
+                        <tr>
+                            <td>${i + 1}</td>
+                            <td>${p.Product_detail || '-'}</td>
+                            <td>${p.company || '-'}</td>
+                            <td>${p.product_group || '-'}</td>
+                            <td>${(p.nname || '') + ' ' + (p.surename || '')}</td>
+                            <td>${p.team || '-'}</td>
+                            <td>${p.step_name || '-'}</td>
+                            <td class="text-right">${val.toLocaleString('th-TH', {minimumFractionDigits: 2})}</td>
+                            <td>${p.contact_start_date || '-'}</td>
+                        </tr>
+                    `);
+                });
+                total.text(sumValue.toLocaleString('th-TH', {minimumFractionDigits: 2}));
+                table.show();
+            })
+            .catch(() => {
+                loading.hide();
+                empty.show();
+            });
+    }
+
     // Sale Status Chart (Grouped Bar by Month)
     function renderSaleStatusChart(data) {
         const ctx = document.getElementById('salestatusChart');
@@ -536,6 +682,14 @@
             },
             options: {
                 responsive: true,
+                onClick: function(evt, elements) {
+                    if (elements.length === 0) return;
+                    const el = elements[0];
+                    const month = months[el.index];
+                    const orderlv = Object.keys(stepConfig)[el.datasetIndex];
+                    const stepLabel = stepConfig[orderlv].label;
+                    showChartDetail('step', orderlv, 'สถานะ: ' + stepLabel + ' — ' + month, month);
+                },
                 scales: {
                     x: { stacked: false },
                     y: {
@@ -603,6 +757,14 @@
             },
             options: {
                 responsive: true,
+                onClick: function(evt, elements) {
+                    if (elements.length === 0) return;
+                    const el = elements[0];
+                    const month = months[el.index];
+                    const orderlv = Object.keys(stepConfig)[el.datasetIndex];
+                    const stepLabel = stepConfig[orderlv].label;
+                    showChartDetail('step', orderlv, 'มูลค่า: ' + stepLabel + ' — ' + month, month);
+                },
                 scales: {
                     x: { stacked: false },
                     y: {
@@ -651,6 +813,12 @@
             options: {
                 responsive: true,
                 indexAxis: 'y',
+                onClick: function(evt, elements) {
+                    if (elements.length === 0) return;
+                    const idx = elements[0].index;
+                    const item = data[idx];
+                    showChartDetail('product', item.product_id, 'โซลูชั่น: ' + item.product);
+                },
                 scales: {
                     x: {
                         beginAtZero: true,
@@ -685,6 +853,12 @@
             },
             options: {
                 responsive: true,
+                onClick: function(evt, elements) {
+                    if (elements.length === 0) return;
+                    const idx = elements[0].index;
+                    const item = data[idx];
+                    showChartDetail('company', item.company_id, 'ลูกค้า: ' + item.company);
+                },
                 scales: {
                     y: {
                         beginAtZero: true,
@@ -736,6 +910,16 @@
             },
             options: {
                 responsive: true,
+                onClick: function(evt, elements) {
+                    if (elements.length === 0) return;
+                    const el = elements[0];
+                    const person = data[el.index];
+                    const dsIndex = el.datasetIndex;
+                    const userName = person.nname + ' ' + (person.surename || '');
+                    const types = ['user_forecast', 'user_forecast', 'user_win'];
+                    const labels = ['Target/Forecast', 'Forecast', 'Win'];
+                    showChartDetail(types[dsIndex], person.user_id, labels[dsIndex] + ': ' + userName);
+                },
                 scales: {
                     y: {
                         beginAtZero: true,
@@ -762,15 +946,24 @@
         });
     }
 
-    // Initialize all charts
-    renderWinStatusValueChart(cumulativeWinData);
-    renderTeamSumChart(sumByTeamData);
-    renderPersonSumChart(sumByPersonData);
-    renderSaleStatusChart(saleStatusData);
-    renderStatusValueChart(saleStatusValueData);
-    renderTargetForecastWinChart(targetForecastWinData);
-    renderTopProductsChart(topProductsData);
-    renderTopCustomerChart(topCustomersData);
+    injectChartSkeletons();
+
+    // Progressive initialization: render key charts first, then stagger the rest.
+    renderWithSkeleton('winstatusValueChart', () => renderWinStatusValueChart(cumulativeWinData));
+    renderWithSkeleton('teamSumChart', () => renderTeamSumChart(sumByTeamData));
+
+    const deferredCharts = [
+        () => renderWithSkeleton('personSumChart', () => renderPersonSumChart(sumByPersonData)),
+        () => renderWithSkeleton('salestatusChart', () => renderSaleStatusChart(saleStatusData)),
+        () => renderWithSkeleton('statusValueChart', () => renderStatusValueChart(saleStatusValueData)),
+        () => renderWithSkeleton('targetForecastWinChart', () => renderTargetForecastWinChart(targetForecastWinData)),
+        () => renderWithSkeleton('topProductsChart', () => renderTopProductsChart(topProductsData)),
+        () => renderWithSkeleton('topCustomerChart', () => renderTopCustomerChart(topCustomersData)),
+    ];
+
+    deferredCharts.forEach((renderFn, idx) => {
+        setTimeout(renderFn, 120 + (idx * 90));
+    });
 })();
 </script>
 @stop
@@ -800,6 +993,37 @@
         font-weight: bold;
         margin: 0;
         color: #333;
+    }
+    .chart-host {
+        position: relative;
+        min-height: 180px;
+    }
+    .chart-skeleton {
+        position: absolute;
+        inset: 0;
+        background: #f8fafc;
+        border-radius: 8px;
+        padding: 16px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        gap: 10px;
+        transition: opacity 0.25s ease;
+        pointer-events: none;
+    }
+    .chart-skeleton.loaded {
+        opacity: 0;
+    }
+    .chart-skeleton-bar {
+        height: 12px;
+        border-radius: 999px;
+        background: linear-gradient(90deg, #e2e8f0, #cbd5e1, #e2e8f0);
+        background-size: 200% 100%;
+        animation: chartPulse 1.1s linear infinite;
+    }
+    @keyframes chartPulse {
+        0% { background-position: 200% 0; }
+        100% { background-position: -200% 0; }
     }
 </style>
 @stop

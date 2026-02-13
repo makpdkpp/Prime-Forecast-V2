@@ -25,6 +25,7 @@ Route::get('/', function () {
 // Auth routes (no middleware required)
 Route::get('/login', [AuthController::class, 'showLoginForm'])->name('login');
 Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:5,1')->name('login.submit');
+Route::get('/post-login-loading', [AuthController::class, 'postLoginLoading'])->name('postlogin.loading');
 Route::get('/logout', [AuthController::class, 'logout'])->name('logout');
 Route::post('/logout', [AuthController::class, 'logout']);
 
@@ -44,7 +45,9 @@ Route::middleware(['auth'])->group(function () {
     Route::middleware(['admin'])->prefix('admin')->name('admin.')->group(function () {
         Route::get('/dashboard', [AdminController::class, 'dashboard'])->name('dashboard');
         Route::get('/dashboard/table', [AdminController::class, 'dashboardTable'])->name('dashboard.table');
+        Route::get('/dashboard/table/data', [AdminController::class, 'dashboardTableData'])->name('dashboard.table.data');
         Route::get('/dashboard/win-projects/{userId}', [AdminController::class, 'winProjectsByUser'])->name('dashboard.winProjects');
+        Route::get('/dashboard/chart-detail', [AdminController::class, 'chartDetail'])->name('dashboard.chartDetail');
         Route::get('/sales/{id}/edit', [AdminController::class, 'editSales'])->name('sales.edit');
         Route::put('/sales/{id}', [AdminController::class, 'updateSales'])->name('sales.update');
         Route::delete('/sales/{id}', [AdminController::class, 'deleteSales'])->name('sales.delete');
@@ -87,6 +90,8 @@ Route::middleware(['auth'])->group(function () {
     Route::middleware(['teamadmin'])->prefix('teamadmin')->name('teamadmin.')->group(function () {
         Route::get('/dashboard', [TeamAdminController::class, 'dashboard'])->name('dashboard');
         Route::get('/dashboard/table', [TeamAdminController::class, 'dashboardTable'])->name('dashboard.table');
+        Route::get('/dashboard/table/data', [TeamAdminController::class, 'dashboardTableData'])->name('dashboard.table.data');
+        Route::get('/dashboard/chart-detail', [TeamAdminController::class, 'chartDetail'])->name('dashboard.chartDetail');
         Route::get('/sales/{id}/edit', [TeamAdminController::class, 'editSales'])->name('sales.edit');
         Route::put('/sales/{id}', [TeamAdminController::class, 'updateSales'])->name('sales.update');
         Route::get('/profile', [TeamAdminController::class, 'profile'])->name('profile');

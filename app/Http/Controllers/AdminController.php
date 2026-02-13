@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Cache;
 use App\Models\Transactional;
 use App\Models\User;
 
@@ -16,11 +17,13 @@ class AdminController extends Controller
         $quarter = $request->get('quarter');
         
         // Get available years from transactional data
-        $availableYears = DB::table('transactional')
-            ->select('fiscalyear')
-            ->distinct()
-            ->orderBy('fiscalyear', 'desc')
-            ->pluck('fiscalyear');
+        $availableYears = Cache::remember('dashboard:admin:availableYears', 120, function () {
+            return DB::table('transactional')
+                ->select('fiscalyear')
+                ->distinct()
+                ->orderBy('fiscalyear', 'desc')
+                ->pluck('fiscalyear');
+        });
         
         // Build base query with filters
         $query = DB::table('transactional');
@@ -29,9 +32,7 @@ class AdminController extends Controller
             $query->where('fiscalyear', $year);
         }
         
-        if ($quarter) {
-            $query->whereRaw('QUARTER(contact_start_date) = ?', [$quarter]);
-        }
+        $this->applyQuarterFilterToQuery($query, $year, $quarter);
         
         // Get summary statistics
         $estimateValue = (clone $query)->sum('product_value');
@@ -43,10 +44,7 @@ class AdminController extends Controller
             $winWhere .= " AND t.fiscalyear = ?";
             $winParams[] = $year;
         }
-        if ($quarter) {
-            $winWhere .= " AND QUARTER(t.contact_start_date) = ?";
-            $winParams[] = $quarter;
-        }
+        $this->appendQuarterSqlFilter($winWhere, $winParams, $year, $quarter, 't');
         $winData = DB::select("
             SELECT 
                 COALESCE(SUM(t.product_value), 0) as win_value,
@@ -73,10 +71,7 @@ class AdminController extends Controller
             $lostWhere .= " AND t.fiscalyear = ?";
             $lostParams[] = $year;
         }
-        if ($quarter) {
-            $lostWhere .= " AND QUARTER(t.contact_start_date) = ?";
-            $lostParams[] = $quarter;
-        }
+        $this->appendQuarterSqlFilter($lostWhere, $lostParams, $year, $quarter, 't');
         $lostCount = DB::select("
             SELECT COUNT(*) as lost_count
             FROM transactional t
@@ -105,35 +100,34 @@ class AdminController extends Controller
             $cumulativeWinWhere .= " AND t.fiscalyear = ?";
             $cumulativeWinParams[] = $year;
         }
-        if ($quarter) {
-            $cumulativeWinWhere .= " AND QUARTER(t.contact_start_date) = ?";
-            $cumulativeWinParams[] = $quarter;
-        }
-        $cumulativeWin = DB::select("
-            SELECT 
-                monthly.sale_month,
-                SUM(monthly.monthly_value) OVER (ORDER BY monthly.sale_month) as cumulative_win_value
-            FROM (
+        $this->appendQuarterSqlFilter($cumulativeWinWhere, $cumulativeWinParams, $year, $quarter, 't');
+        $cumulativeWin = Cache::remember('dashboard:admin:cumulativeWin:' . ($year ?? 'all') . ':' . ($quarter ?? 'all'), 120, function () use ($cumulativeWinWhere, $cumulativeWinParams) {
+            return DB::select("
                 SELECT 
-                    DATE_FORMAT(ts_win.date, '%Y-%m') as sale_month,
-                    SUM(t.product_value) as monthly_value
-                FROM transactional t
-                JOIN (
-                    SELECT ts.transac_id, ts.date
-                    FROM transactional_step ts
-                    JOIN step s ON s.level_id = ts.level_id
-                    WHERE s.level = 5
-                    AND (ts.transacstep_id, ts.transac_id) IN (
-                        SELECT MAX(ts2.transacstep_id), ts2.transac_id
-                        FROM transactional_step ts2
-                        GROUP BY ts2.transac_id
-                    )
-                ) ts_win ON ts_win.transac_id = t.transac_id
-                WHERE 1=1 {$cumulativeWinWhere}
-                GROUP BY DATE_FORMAT(ts_win.date, '%Y-%m')
-            ) monthly
-            ORDER BY monthly.sale_month
-        ", $cumulativeWinParams);
+                    monthly.sale_month,
+                    SUM(monthly.monthly_value) OVER (ORDER BY monthly.sale_month) as cumulative_win_value
+                FROM (
+                    SELECT 
+                        DATE_FORMAT(ts_win.date, '%Y-%m') as sale_month,
+                        SUM(t.product_value) as monthly_value
+                    FROM transactional t
+                    JOIN (
+                        SELECT ts.transac_id, ts.date
+                        FROM transactional_step ts
+                        JOIN step s ON s.level_id = ts.level_id
+                        WHERE s.level = 5
+                        AND (ts.transacstep_id, ts.transac_id) IN (
+                            SELECT MAX(ts2.transacstep_id), ts2.transac_id
+                            FROM transactional_step ts2
+                            GROUP BY ts2.transac_id
+                        )
+                    ) ts_win ON ts_win.transac_id = t.transac_id
+                    WHERE 1=1 {$cumulativeWinWhere}
+                    GROUP BY DATE_FORMAT(ts_win.date, '%Y-%m')
+                ) monthly
+                ORDER BY monthly.sale_month
+            ", $cumulativeWinParams);
+        });
         
         // Sum by team (only transactions whose latest step is WIN - level = 5)
         $sumByTeamParams = [];
@@ -142,244 +136,15 @@ class AdminController extends Controller
             $sumByTeamWhere .= " AND t.fiscalyear = ?";
             $sumByTeamParams[] = $year;
         }
-        if ($quarter) {
-            $sumByTeamWhere .= " AND QUARTER(t.contact_start_date) = ?";
-            $sumByTeamParams[] = $quarter;
-        }
-        $sumByTeam = DB::select("
-            SELECT 
-                tc.team,
-                SUM(t.product_value) as total_value
-            FROM transactional t
-            JOIN team_catalog tc ON t.team_id = tc.team_id
-            JOIN (
-                SELECT ts.transac_id
-                FROM transactional_step ts
-                JOIN step s ON s.level_id = ts.level_id
-                WHERE s.level = 5
-                AND (ts.transacstep_id, ts.transac_id) IN (
-                    SELECT MAX(ts2.transacstep_id), ts2.transac_id
-                    FROM transactional_step ts2
-                    GROUP BY ts2.transac_id
-                )
-            ) wintrans ON wintrans.transac_id = t.transac_id
-            WHERE 1=1 {$sumByTeamWhere}
-            GROUP BY tc.team_id, tc.team
-            ORDER BY total_value DESC
-        ", $sumByTeamParams);
-        
-        // Sum by person (only transactions whose latest step is WIN - level = 5)
-        $sumByPersonParams = [];
-        $sumByPersonWhere = "";
-        if ($year) {
-            $sumByPersonWhere .= " AND t.fiscalyear = ?";
-            $sumByPersonParams[] = $year;
-        }
-        if ($quarter) {
-            $sumByPersonWhere .= " AND QUARTER(t.contact_start_date) = ?";
-            $sumByPersonParams[] = $quarter;
-        }
-        $sumByPerson = DB::select("
-            SELECT 
-                u.user_id,
-                u.nname,
-                u.surename,
-                SUM(t.product_value) as total_value
-            FROM transactional t
-            JOIN user u ON t.user_id = u.user_id
-            JOIN (
-                SELECT ts.transac_id
-                FROM transactional_step ts
-                JOIN step s ON s.level_id = ts.level_id
-                WHERE s.level = 5
-                AND (ts.transacstep_id, ts.transac_id) IN (
-                    SELECT MAX(ts2.transacstep_id), ts2.transac_id
-                    FROM transactional_step ts2
-                    GROUP BY ts2.transac_id
-                )
-            ) wintrans ON wintrans.transac_id = t.transac_id
-            WHERE 1=1 {$sumByPersonWhere}
-            GROUP BY u.user_id, u.nname, u.surename
-            ORDER BY total_value DESC
-            LIMIT 10
-        ", $sumByPersonParams);
-        
-        // Sale status count by month and step level
-        $saleStatusParams = [];
-        $saleStatusWhere = "";
-        if ($year) {
-            $saleStatusWhere .= " AND t.fiscalyear = ?";
-            $saleStatusParams[] = $year;
-        }
-        if ($quarter) {
-            $saleStatusWhere .= " AND QUARTER(t.contact_start_date) = ?";
-            $saleStatusParams[] = $quarter;
-        }
-        $saleStatus = DB::select("
-            SELECT 
-                DATE_FORMAT(ts.date, '%Y-%m') as sale_month,
-                s.orderlv,
-                s.level,
-                COUNT(*) as count
-            FROM transactional t
-            JOIN transactional_step ts ON t.transac_id = ts.transac_id
-            JOIN step s ON s.level_id = ts.level_id
-            WHERE (ts.transacstep_id, ts.transac_id) IN (
-                SELECT MAX(ts2.transacstep_id), ts2.transac_id
-                FROM transactional_step ts2
-                GROUP BY ts2.transac_id
-            )
-            AND s.orderlv BETWEEN 1 AND 6
-            {$saleStatusWhere}
-            GROUP BY DATE_FORMAT(ts.date, '%Y-%m'), s.orderlv, s.level
-            ORDER BY sale_month, s.orderlv
-        ", $saleStatusParams);
-        
-        // Sale status value by month and step level
-        $saleStatusValueParams = [];
-        $saleStatusValueWhere = "";
-        if ($year) {
-            $saleStatusValueWhere .= " AND t.fiscalyear = ?";
-            $saleStatusValueParams[] = $year;
-        }
-        if ($quarter) {
-            $saleStatusValueWhere .= " AND QUARTER(t.contact_start_date) = ?";
-            $saleStatusValueParams[] = $quarter;
-        }
-        $saleStatusValue = DB::select("
-            SELECT 
-                DATE_FORMAT(ts.date, '%Y-%m') as sale_month,
-                s.orderlv,
-                s.level,
-                SUM(t.product_value) as total_value
-            FROM transactional t
-            JOIN transactional_step ts ON t.transac_id = ts.transac_id
-            JOIN step s ON s.level_id = ts.level_id
-            WHERE (ts.transacstep_id, ts.transac_id) IN (
-                SELECT MAX(ts2.transacstep_id), ts2.transac_id
-                FROM transactional_step ts2
-                GROUP BY ts2.transac_id
-            )
-            AND s.orderlv BETWEEN 1 AND 6
-            {$saleStatusValueWhere}
-            GROUP BY DATE_FORMAT(ts.date, '%Y-%m'), s.orderlv, s.level
-            ORDER BY sale_month, s.orderlv
-        ", $saleStatusValueParams);
-        
-        // Top 10 products (only WIN - level = 5)
-        $topProductsParams = [];
-        $topProductsWhere = "";
-        if ($year) {
-            $topProductsWhere .= " AND t.fiscalyear = ?";
-            $topProductsParams[] = $year;
-        }
-        if ($quarter) {
-            $topProductsWhere .= " AND QUARTER(t.contact_start_date) = ?";
-            $topProductsParams[] = $quarter;
-        }
-        $topProducts = DB::select("
-            SELECT 
-                pg.product,
-                SUM(t.product_value) as total_value
-            FROM transactional t
-            JOIN product_group pg ON t.Product_id = pg.Product_id
-            JOIN (
-                SELECT ts.transac_id
-                FROM transactional_step ts
-                JOIN step s ON s.level_id = ts.level_id
-                WHERE s.level = 5
-                AND (ts.transacstep_id, ts.transac_id) IN (
-                    SELECT MAX(ts2.transacstep_id), ts2.transac_id
-                    FROM transactional_step ts2
-                    GROUP BY ts2.transac_id
-                )
-            ) wintrans ON wintrans.transac_id = t.transac_id
-            WHERE 1=1 {$topProductsWhere}
-            GROUP BY pg.Product_id, pg.product
-            ORDER BY total_value DESC
-            LIMIT 10
-        ", $topProductsParams);
-        
-        // Top 10 customers (only WIN - level = 5)
-        $topCustomersParams = [];
-        $topCustomersWhere = "";
-        if ($year) {
-            $topCustomersWhere .= " AND t.fiscalyear = ?";
-            $topCustomersParams[] = $year;
-        }
-        if ($quarter) {
-            $topCustomersWhere .= " AND QUARTER(t.contact_start_date) = ?";
-            $topCustomersParams[] = $quarter;
-        }
-        $topCustomers = DB::select("
-            SELECT 
-                cc.company,
-                SUM(t.product_value) as total_value
-            FROM transactional t
-            JOIN company_catalog cc ON t.company_id = cc.company_id
-            JOIN (
-                SELECT ts.transac_id
-                FROM transactional_step ts
-                JOIN step s ON s.level_id = ts.level_id
-                WHERE s.level = 5
-                AND (ts.transacstep_id, ts.transac_id) IN (
-                    SELECT MAX(ts2.transacstep_id), ts2.transac_id
-                    FROM transactional_step ts2
-                    GROUP BY ts2.transac_id
-                )
-            ) wintrans ON wintrans.transac_id = t.transac_id
-            WHERE 1=1 {$topCustomersWhere}
-            GROUP BY cc.company_id, cc.company
-            ORDER BY total_value DESC
-            LIMIT 10
-        ", $topCustomersParams);
-        
-        // Target/Forecast/Win comparison per user
-        $tfwParams = [];
-        $tfwWhere = "";
-        $tfwTargetWhere = "";
-        if ($year) {
-            $tfwWhere .= " AND t.fiscalyear = ?";
-            $tfwTargetWhere .= " AND uft.fiscal_year = ?";
-            $tfwParams[] = $year;
-        }
-        if ($quarter) {
-            $tfwWhere .= " AND QUARTER(t.contact_start_date) = ?";
-        }
-        // Build params for forecast subquery
-        $forecastParams = [];
-        if ($year) $forecastParams[] = $year;
-        if ($quarter) $forecastParams[] = $quarter;
-        // Build params for win subquery
-        $winParams = $forecastParams;
-        // Build params for target subquery
-        $targetParams = [];
-        if ($year) $targetParams[] = $year;
-
-        $targetForecastWin = DB::select("
-            SELECT 
-                u.user_id,
-                u.nname,
-                u.surename,
-                COALESCE(tgt.target_value, 0) as target_value,
-                COALESCE(fc.forecast_value, 0) as forecast_value,
-                COALESCE(wn.win_value, 0) as win_value
-            FROM user u
-            LEFT JOIN (
-                SELECT uft.user_id, SUM(uft.target_value) as target_value
-                FROM user_forecast_target uft
-                WHERE 1=1 {$tfwTargetWhere}
-                GROUP BY uft.user_id
-            ) tgt ON tgt.user_id = u.user_id
-            LEFT JOIN (
-                SELECT t.user_id, SUM(t.product_value) as forecast_value
+        $this->appendQuarterSqlFilter($sumByTeamWhere, $sumByTeamParams, $year, $quarter, 't');
+        $sumByTeam = Cache::remember('dashboard:admin:sumByTeam:' . ($year ?? 'all') . ':' . ($quarter ?? 'all'), 120, function () use ($sumByTeamWhere, $sumByTeamParams) {
+            return DB::select("
+                SELECT 
+                    tc.team_id,
+                    tc.team,
+                    SUM(t.product_value) as total_value
                 FROM transactional t
-                WHERE 1=1 {$tfwWhere}
-                GROUP BY t.user_id
-            ) fc ON fc.user_id = u.user_id
-            LEFT JOIN (
-                SELECT t.user_id, SUM(t.product_value) as win_value
-                FROM transactional t
+                JOIN team_catalog tc ON t.team_id = tc.team_id
                 JOIN (
                     SELECT ts.transac_id
                     FROM transactional_step ts
@@ -391,12 +156,241 @@ class AdminController extends Controller
                         GROUP BY ts2.transac_id
                     )
                 ) wintrans ON wintrans.transac_id = t.transac_id
-                WHERE 1=1 {$tfwWhere}
-                GROUP BY t.user_id
-            ) wn ON wn.user_id = u.user_id
-            WHERE (tgt.target_value IS NOT NULL OR fc.forecast_value IS NOT NULL OR wn.win_value IS NOT NULL)
-            ORDER BY COALESCE(fc.forecast_value, 0) DESC
-        ", array_merge($targetParams, $forecastParams, $winParams));
+                WHERE 1=1 {$sumByTeamWhere}
+                GROUP BY tc.team_id, tc.team
+                ORDER BY total_value DESC
+            ", $sumByTeamParams);
+        });
+        
+        // Sum by person (only transactions whose latest step is WIN - level = 5)
+        $sumByPersonParams = [];
+        $sumByPersonWhere = "";
+        if ($year) {
+            $sumByPersonWhere .= " AND t.fiscalyear = ?";
+            $sumByPersonParams[] = $year;
+        }
+        $this->appendQuarterSqlFilter($sumByPersonWhere, $sumByPersonParams, $year, $quarter, 't');
+        $sumByPerson = Cache::remember('dashboard:admin:sumByPerson:' . ($year ?? 'all') . ':' . ($quarter ?? 'all'), 120, function () use ($sumByPersonWhere, $sumByPersonParams) {
+            return DB::select("
+                SELECT 
+                    u.user_id,
+                    u.nname,
+                    u.surename,
+                    SUM(t.product_value) as total_value
+                FROM transactional t
+                JOIN user u ON t.user_id = u.user_id
+                JOIN (
+                    SELECT ts.transac_id
+                    FROM transactional_step ts
+                    JOIN step s ON s.level_id = ts.level_id
+                    WHERE s.level = 5
+                    AND (ts.transacstep_id, ts.transac_id) IN (
+                        SELECT MAX(ts2.transacstep_id), ts2.transac_id
+                        FROM transactional_step ts2
+                        GROUP BY ts2.transac_id
+                    )
+                ) wintrans ON wintrans.transac_id = t.transac_id
+                WHERE 1=1 {$sumByPersonWhere}
+                GROUP BY u.user_id, u.nname, u.surename
+                ORDER BY total_value DESC
+                LIMIT 10
+            ", $sumByPersonParams);
+        });
+        
+        // Sale status count by month and step level
+        $saleStatusParams = [];
+        $saleStatusWhere = "";
+        if ($year) {
+            $saleStatusWhere .= " AND t.fiscalyear = ?";
+            $saleStatusParams[] = $year;
+        }
+        $this->appendQuarterSqlFilter($saleStatusWhere, $saleStatusParams, $year, $quarter, 't');
+        $saleStatus = Cache::remember('dashboard:admin:saleStatus:' . ($year ?? 'all') . ':' . ($quarter ?? 'all'), 120, function () use ($saleStatusParams, $saleStatusWhere) {
+            return DB::select("
+                SELECT 
+                    DATE_FORMAT(ts.date, '%Y-%m') as sale_month,
+                    s.orderlv,
+                    s.level,
+                    COUNT(*) as count
+                FROM transactional t
+                JOIN transactional_step ts ON t.transac_id = ts.transac_id
+                JOIN step s ON s.level_id = ts.level_id
+                WHERE (ts.transacstep_id, ts.transac_id) IN (
+                    SELECT MAX(ts2.transacstep_id), ts2.transac_id
+                    FROM transactional_step ts2
+                    GROUP BY ts2.transac_id
+                )
+                AND s.orderlv BETWEEN 1 AND 6
+                {$saleStatusWhere}
+                GROUP BY DATE_FORMAT(ts.date, '%Y-%m'), s.orderlv, s.level
+                ORDER BY sale_month, s.orderlv
+            ", $saleStatusParams);
+        });
+        
+        // Sale status value by month and step level
+        $saleStatusValueParams = [];
+        $saleStatusValueWhere = "";
+        if ($year) {
+            $saleStatusValueWhere .= " AND t.fiscalyear = ?";
+            $saleStatusValueParams[] = $year;
+        }
+        $this->appendQuarterSqlFilter($saleStatusValueWhere, $saleStatusValueParams, $year, $quarter, 't');
+        $saleStatusValue = Cache::remember('dashboard:admin:saleStatusValue:' . ($year ?? 'all') . ':' . ($quarter ?? 'all'), 120, function () use ($saleStatusValueParams, $saleStatusValueWhere) {
+            return DB::select("
+                SELECT 
+                    DATE_FORMAT(ts.date, '%Y-%m') as sale_month,
+                    s.orderlv,
+                    s.level,
+                    SUM(t.product_value) as total_value
+                FROM transactional t
+                JOIN transactional_step ts ON t.transac_id = ts.transac_id
+                JOIN step s ON s.level_id = ts.level_id
+                WHERE (ts.transacstep_id, ts.transac_id) IN (
+                    SELECT MAX(ts2.transacstep_id), ts2.transac_id
+                    FROM transactional_step ts2
+                    GROUP BY ts2.transac_id
+                )
+                AND s.orderlv BETWEEN 1 AND 6
+                {$saleStatusValueWhere}
+                GROUP BY DATE_FORMAT(ts.date, '%Y-%m'), s.orderlv, s.level
+                ORDER BY sale_month, s.orderlv
+            ", $saleStatusValueParams);
+        });
+        
+        // Top 10 products (only WIN - level = 5)
+        $topProductsParams = [];
+        $topProductsWhere = "";
+        if ($year) {
+            $topProductsWhere .= " AND t.fiscalyear = ?";
+            $topProductsParams[] = $year;
+        }
+        $this->appendQuarterSqlFilter($topProductsWhere, $topProductsParams, $year, $quarter, 't');
+        $topProducts = Cache::remember('dashboard:admin:topProducts:' . ($year ?? 'all') . ':' . ($quarter ?? 'all'), 120, function () use ($topProductsWhere, $topProductsParams) {
+            return DB::select("
+                SELECT 
+                    pg.product_id,
+                    pg.product,
+                    SUM(t.product_value) as total_value
+                FROM transactional t
+                JOIN product_group pg ON t.Product_id = pg.product_id
+                JOIN (
+                    SELECT ts.transac_id
+                    FROM transactional_step ts
+                    JOIN step s ON s.level_id = ts.level_id
+                    WHERE s.level = 5
+                    AND (ts.transacstep_id, ts.transac_id) IN (
+                        SELECT MAX(ts2.transacstep_id), ts2.transac_id
+                        FROM transactional_step ts2
+                        GROUP BY ts2.transac_id
+                    )
+                ) wintrans ON wintrans.transac_id = t.transac_id
+                WHERE 1=1 {$topProductsWhere}
+                GROUP BY pg.Product_id, pg.product
+                ORDER BY total_value DESC
+                LIMIT 10
+            ", $topProductsParams);
+        });
+        
+        // Top 10 customers (only WIN - level = 5)
+        $topCustomersParams = [];
+        $topCustomersWhere = "";
+        if ($year) {
+            $topCustomersWhere .= " AND t.fiscalyear = ?";
+            $topCustomersParams[] = $year;
+        }
+        $this->appendQuarterSqlFilter($topCustomersWhere, $topCustomersParams, $year, $quarter, 't');
+        $topCustomers = Cache::remember('dashboard:admin:topCustomers:' . ($year ?? 'all') . ':' . ($quarter ?? 'all'), 120, function () use ($topCustomersWhere, $topCustomersParams) {
+            return DB::select("
+                SELECT 
+                    cc.company_id,
+                    cc.company,
+                    SUM(t.product_value) as total_value
+                FROM transactional t
+                JOIN company_catalog cc ON t.company_id = cc.company_id
+                JOIN (
+                    SELECT ts.transac_id
+                    FROM transactional_step ts
+                    JOIN step s ON s.level_id = ts.level_id
+                    WHERE s.level = 5
+                    AND (ts.transacstep_id, ts.transac_id) IN (
+                        SELECT MAX(ts2.transacstep_id), ts2.transac_id
+                        FROM transactional_step ts2
+                        GROUP BY ts2.transac_id
+                    )
+                ) wintrans ON wintrans.transac_id = t.transac_id
+                WHERE 1=1 {$topCustomersWhere}
+                GROUP BY cc.company_id, cc.company
+                ORDER BY total_value DESC
+                LIMIT 10
+            ", $topCustomersParams);
+        });
+        
+        // Target/Forecast/Win comparison per user
+        $tfwParams = [];
+        $tfwWhere = "";
+        $tfwTargetWhere = "";
+        if ($year) {
+            $tfwWhere .= " AND t.fiscalyear = ?";
+            $tfwTargetWhere .= " AND uft.fiscal_year = ?";
+            $tfwParams[] = $year;
+        }
+        $tfwQuarterParams = [];
+        $this->appendQuarterSqlFilter($tfwWhere, $tfwQuarterParams, $year, $quarter, 't');
+        // Build params for forecast subquery
+        $forecastParams = [];
+        if ($year) {
+            $forecastParams[] = $year;
+        }
+        $forecastParams = array_merge($forecastParams, $tfwQuarterParams);
+        // Build params for win subquery
+        $winParams = $forecastParams;
+        // Build params for target subquery
+        $targetParams = [];
+        if ($year) $targetParams[] = $year;
+
+        $targetForecastWin = Cache::remember('dashboard:admin:targetForecastWin:' . ($year ?? 'all') . ':' . ($quarter ?? 'all'), 120, function () use ($tfwTargetWhere, $tfwWhere, $targetParams, $forecastParams, $winParams) {
+            return DB::select("
+                SELECT 
+                    u.user_id,
+                    u.nname,
+                    u.surename,
+                    COALESCE(tgt.target_value, 0) as target_value,
+                    COALESCE(fc.forecast_value, 0) as forecast_value,
+                    COALESCE(wn.win_value, 0) as win_value
+                FROM user u
+                LEFT JOIN (
+                    SELECT uft.user_id, SUM(uft.target_value) as target_value
+                    FROM user_forecast_target uft
+                    WHERE 1=1 {$tfwTargetWhere}
+                    GROUP BY uft.user_id
+                ) tgt ON tgt.user_id = u.user_id
+                LEFT JOIN (
+                    SELECT t.user_id, SUM(t.product_value) as forecast_value
+                    FROM transactional t
+                    WHERE 1=1 {$tfwWhere}
+                    GROUP BY t.user_id
+                ) fc ON fc.user_id = u.user_id
+                LEFT JOIN (
+                    SELECT t.user_id, SUM(t.product_value) as win_value
+                    FROM transactional t
+                    JOIN (
+                        SELECT ts.transac_id
+                        FROM transactional_step ts
+                        JOIN step s ON s.level_id = ts.level_id
+                        WHERE s.level = 5
+                        AND (ts.transacstep_id, ts.transac_id) IN (
+                            SELECT MAX(ts2.transacstep_id), ts2.transac_id
+                            FROM transactional_step ts2
+                            GROUP BY ts2.transac_id
+                        )
+                    ) wintrans ON wintrans.transac_id = t.transac_id
+                    WHERE 1=1 {$tfwWhere}
+                    GROUP BY t.user_id
+                ) wn ON wn.user_id = u.user_id
+                WHERE (tgt.target_value IS NOT NULL OR fc.forecast_value IS NOT NULL OR wn.win_value IS NOT NULL)
+                ORDER BY COALESCE(fc.forecast_value, 0) DESC
+            ", array_merge($targetParams, $forecastParams, $winParams));
+        });
 
         return view('admin.dashboard', compact(
             'estimateValue',
@@ -417,6 +411,135 @@ class AdminController extends Controller
         ));
     }
 
+    public function chartDetail(Request $request)
+    {
+        $type = $request->get('type');
+        $value = $request->get('value');
+        $value2 = $request->get('value2');
+        $year = $request->get('year');
+        $quarter = $request->get('quarter');
+
+        $params = [];
+        $where = "";
+        if ($year) {
+            $where .= " AND t.fiscalyear = ?";
+            $params[] = $year;
+        }
+        $this->appendQuarterSqlFilter($where, $params, $year, $quarter, 't');
+
+        // WIN subquery — used by most chart types
+        $winJoin = "
+            JOIN (
+                SELECT ts.transac_id
+                FROM transactional_step ts
+                JOIN step s ON s.level_id = ts.level_id
+                WHERE s.level = 5
+                AND (ts.transacstep_id, ts.transac_id) IN (
+                    SELECT MAX(ts2.transacstep_id), ts2.transac_id
+                    FROM transactional_step ts2
+                    GROUP BY ts2.transac_id
+                )
+            ) wintrans ON wintrans.transac_id = t.transac_id
+        ";
+
+        // Step subquery — for step-based charts
+        $stepJoin = "
+            JOIN transactional_step ts ON t.transac_id = ts.transac_id
+            JOIN step s ON s.level_id = ts.level_id
+            AND (ts.transacstep_id, ts.transac_id) IN (
+                SELECT MAX(ts2.transacstep_id), ts2.transac_id
+                FROM transactional_step ts2
+                GROUP BY ts2.transac_id
+            )
+        ";
+
+        $extraJoin = "";
+        $extraWhere = "";
+        $extraParams = [];
+
+        switch ($type) {
+            case 'month': // ยอดขายรวม — win by month
+                $extraJoin = $winJoin . "
+                    JOIN transactional_step ts_w ON ts_w.transac_id = t.transac_id
+                    JOIN step s_w ON s_w.level_id = ts_w.level_id AND s_w.level = 5";
+                $extraWhere = " AND DATE_FORMAT(ts_w.date, '%Y-%m') = ?";
+                $extraParams[] = $value;
+                break;
+            case 'team': // ยอดขายรายทีม — win by team
+                $extraJoin = $winJoin;
+                $extraWhere = " AND t.team_id = ?";
+                $extraParams[] = $value;
+                break;
+            case 'step': // สถานะการขาย — by step orderlv + optional month
+                $extraJoin = $stepJoin;
+                $extraWhere = " AND s.orderlv = ?";
+                $extraParams[] = $value;
+                if ($value2) {
+                    $extraWhere .= " AND DATE_FORMAT(ts.date, '%Y-%m') = ?";
+                    $extraParams[] = $value2;
+                }
+                break;
+            case 'user_forecast': // Target/Forecast/Win — all transactions by user
+                $extraWhere = " AND t.user_id = ?";
+                $extraParams[] = $value;
+                break;
+            case 'user_win': // Target/Forecast/Win — win only by user
+                $extraJoin = $winJoin;
+                $extraWhere = " AND t.user_id = ?";
+                $extraParams[] = $value;
+                break;
+            case 'product': // TOP 10 product — win by product
+                $extraJoin = $winJoin;
+                $extraWhere = " AND t.Product_id = ?";
+                $extraParams[] = $value;
+                break;
+            case 'company': // TOP 10 customer — win by company
+                $extraJoin = $winJoin;
+                $extraWhere = " AND t.company_id = ?";
+                $extraParams[] = $value;
+                break;
+            default:
+                return response()->json([]);
+        }
+
+        $allParams = array_merge($params, $extraParams);
+
+        $projects = DB::select("
+            SELECT 
+                t.transac_id,
+                t.Product_detail,
+                t.product_value,
+                c.company,
+                pg.product as product_group,
+                u.nname,
+                u.surename,
+                tc.team,
+                COALESCE(latest_s.level, '-') as step_name,
+                t.contact_start_date
+            FROM transactional t
+            {$extraJoin}
+            LEFT JOIN company_catalog c ON t.company_id = c.company_id
+            LEFT JOIN product_group pg ON t.Product_id = pg.product_id
+            LEFT JOIN user u ON t.user_id = u.user_id
+            LEFT JOIN team_catalog tc ON t.team_id = tc.team_id
+            LEFT JOIN (
+                SELECT ts3.transac_id, s3.level
+                FROM transactional_step ts3
+                JOIN step s3 ON s3.level_id = ts3.level_id
+                WHERE (ts3.transacstep_id, ts3.transac_id) IN (
+                    SELECT MAX(ts4.transacstep_id), ts4.transac_id
+                    FROM transactional_step ts4
+                    GROUP BY ts4.transac_id
+                )
+            ) latest_s ON latest_s.transac_id = t.transac_id
+            WHERE 1=1 {$where} {$extraWhere}
+            ORDER BY t.product_value DESC
+            LIMIT 100
+        ", $allParams);
+
+        return response()->json($projects);
+    }
+
     public function winProjectsByUser(Request $request, $userId)
     {
         $year = $request->get('year');
@@ -428,10 +551,7 @@ class AdminController extends Controller
             $where .= " AND t.fiscalyear = ?";
             $params[] = $year;
         }
-        if ($quarter) {
-            $where .= " AND QUARTER(t.contact_start_date) = ?";
-            $params[] = $quarter;
-        }
+        $this->appendQuarterSqlFilter($where, $params, $year, $quarter, 't');
 
         $projects = DB::select("
             SELECT 
@@ -467,40 +587,158 @@ class AdminController extends Controller
         // Get filter parameters
         $year = $request->get('year');
         $quarter = $request->get('quarter');
+        $userId = $request->get('user_id');
         
         // Get available years
-        $availableYears = DB::table('transactional')
-            ->select('fiscalyear')
-            ->distinct()
-            ->orderBy('fiscalyear', 'desc')
-            ->pluck('fiscalyear');
+        $availableYears = Cache::remember('dashboard:admin:table:availableYears', 120, function () {
+            return DB::table('transactional')
+                ->select('fiscalyear')
+                ->distinct()
+                ->orderBy('fiscalyear', 'desc')
+                ->pluck('fiscalyear');
+        });
+
+        $availableUsers = Cache::remember('dashboard:admin:table:availableUsers', 120, function () {
+            return DB::table('user')
+                ->select('user_id', 'nname', 'surename')
+                ->where('role_id', 3)
+                ->orderBy('nname')
+                ->orderBy('surename')
+                ->get();
+        });
         
-        // Use Eloquent with eager loading to prevent N+1 queries
-        $query = Transactional::with([
-            'company',
-            'productGroup',
-            'team',
-            'priority',
-            'user',
-            'sourceBudget',
-            'latestStep.step'
-        ]);
-        
-        // Apply filters
+        return view('admin.dashboard_table', compact('availableYears', 'availableUsers', 'year', 'quarter', 'userId'));
+    }
+
+    public function dashboardTableData(Request $request)
+    {
+        $year = $request->get('year');
+        $quarter = $request->get('quarter');
+        $userId = $request->get('user_id');
+
+        $draw = (int) $request->input('draw', 1);
+        $start = max((int) $request->input('start', 0), 0);
+        $length = (int) $request->input('length', 25);
+        if ($length <= 0 || $length > 200) {
+            $length = 25;
+        }
+
+        $base = DB::table('transactional as t')
+            ->leftJoin('company_catalog as c', 't.company_id', '=', 'c.company_id')
+            ->leftJoin('product_group as pg', 't.Product_id', '=', 'pg.product_id')
+            ->leftJoin('team_catalog as tc', 't.team_id', '=', 'tc.team_id')
+            ->leftJoin('priority_level as pl', 't.priority_id', '=', 'pl.priority_id')
+            ->leftJoin('user as u', 't.user_id', '=', 'u.user_id')
+            ->leftJoin('source_of_the_budget as sb', 't.Source_budget_id', '=', 'sb.Source_budget_id')
+            ->leftJoin('step as s', 't.Step_id', '=', 's.level_id');
+
         if ($year) {
-            $query->where('fiscalyear', $year);
+            $base->where('t.fiscalyear', $year);
         }
-        
-        if ($quarter) {
-            $query->whereRaw('QUARTER(contact_start_date) = ?', [$quarter]);
+        $this->applyQuarterFilterToQuery($base, $year, $quarter, 't.contact_start_date');
+        if ($userId) {
+            $base->where('t.user_id', $userId);
         }
-        
-        // Get transactions
-        $transactions = $query->orderBy('updated_at', 'desc')
-            ->orderBy('transac_id', 'desc')
+
+        $total = (clone $base)->count('t.transac_id');
+
+        $searchValue = trim((string) data_get($request->input('search'), 'value', ''));
+        if ($searchValue !== '') {
+            $base->where(function ($q) use ($searchValue) {
+                $like = '%' . $searchValue . '%';
+                $q->where('t.Product_detail', 'like', $like)
+                    ->orWhere('c.company', 'like', $like)
+                    ->orWhere('pg.product', 'like', $like)
+                    ->orWhere('s.level', 'like', $like)
+                    ->orWhere('pl.priority', 'like', $like)
+                    ->orWhere('tc.team', 'like', $like)
+                    ->orWhere('u.nname', 'like', $like)
+                    ->orWhere('u.surename', 'like', $like)
+                    ->orWhere('t.remark', 'like', $like);
+            });
+        }
+
+        $filtered = (clone $base)->count('t.transac_id');
+
+        $orderMap = [
+            0 => 't.Product_detail',
+            1 => 'c.company',
+            2 => 't.product_value',
+            3 => 's.level',
+            4 => 'pl.priority',
+            5 => 't.fiscalyear',
+            6 => 't.contact_start_date',
+            7 => 't.date_of_closing_of_sale',
+            8 => 't.sales_can_be_close',
+            9 => 'pg.product',
+            10 => 'u.nname',
+            11 => 'tc.team',
+            12 => 't.remark',
+        ];
+
+        $orderCol = (int) data_get($request->input('order'), '0.column', 6);
+        $orderDir = strtolower((string) data_get($request->input('order'), '0.dir', 'desc')) === 'asc' ? 'asc' : 'desc';
+        $orderBy = $orderMap[$orderCol] ?? 't.updated_at';
+
+        $rows = $base
+            ->select([
+                't.transac_id',
+                't.Product_detail',
+                't.product_value',
+                't.fiscalyear',
+                't.contact_start_date',
+                't.date_of_closing_of_sale',
+                't.sales_can_be_close',
+                't.remark',
+                'c.company',
+                'pg.product as product_name',
+                'tc.team',
+                'pl.priority',
+                'sb.Source_budge as source_budget',
+                'u.nname',
+                'u.surename',
+                's.level as step_level',
+            ])
+            ->orderBy($orderBy, $orderDir)
+            ->orderBy('t.transac_id', 'desc')
+            ->offset($start)
+            ->limit($length)
             ->get();
 
-        return view('admin.dashboard_table', compact('transactions', 'availableYears', 'year', 'quarter'));
+        $data = $rows->map(function ($r) {
+            $id = (int) $r->transac_id;
+            return [
+                'id' => $id,
+                'project' => $r->Product_detail,
+                'company' => $r->company ?? '-',
+                'value' => (float) $r->product_value,
+                'status' => $r->step_level ?? '-',
+                'priority' => $r->priority ?? '-',
+                'year' => $r->fiscalyear ? ((int) $r->fiscalyear + 543) : '-',
+                'start' => $r->contact_start_date,
+                'bidding' => $r->date_of_closing_of_sale,
+                'contract' => $r->sales_can_be_close,
+                'product' => $r->product_name ?? '-',
+                'user' => trim(($r->nname ?? '') . ' ' . ($r->surename ?? '')),
+                'team' => $r->team ?? '-',
+                'source' => $r->source_budget ?? '-',
+                'contact_person' => '-',
+                'contact_phone' => '-',
+                'contact_email' => '-',
+                'contact_note' => '-',
+                'remark' => $r->remark ?? '-',
+                'action' => '<a href="' . route('admin.sales.edit', $id) . '" class="btn btn-sm btn-info" title="แก้ไข"><i class="fas fa-pencil-alt"></i></a> '
+                    . '<a href="' . route('admin.sales.transfer', $id) . '" class="btn btn-sm btn-warning" title="โอนข้อมูล"><i class="fas fa-exchange-alt"></i></a> '
+                    . '<button type="button" class="btn btn-sm btn-danger js-delete-sale" title="ลบ" data-delete-url="' . route('admin.sales.delete', $id) . '"><i class="fas fa-trash"></i></button>',
+            ];
+        })->values();
+
+        return response()->json([
+            'draw' => $draw,
+            'recordsTotal' => $total,
+            'recordsFiltered' => $filtered,
+            'data' => $data,
+        ]);
     }
 
     public function editSales($id)
@@ -806,6 +1044,62 @@ class AdminController extends Controller
         ]);
     }
     
+    private function quarterDateRange($year, $quarter)
+    {
+        $y = (int) $year;
+        $q = (int) $quarter;
+        if ($y <= 0 || $q < 1 || $q > 4) {
+            return null;
+        }
+
+        $startMonth = (($q - 1) * 3) + 1;
+        $start = sprintf('%04d-%02d-01', $y, $startMonth);
+
+        $endMonth = $startMonth + 3;
+        $endYear = $y;
+        if ($endMonth > 12) {
+            $endMonth -= 12;
+            $endYear++;
+        }
+        $end = sprintf('%04d-%02d-01', $endYear, $endMonth);
+
+        return [$start, $end];
+    }
+
+    private function applyQuarterFilterToQuery($query, $year, $quarter, $column = 'contact_start_date')
+    {
+        if (!$quarter) {
+            return;
+        }
+
+        $range = $this->quarterDateRange($year, $quarter);
+        if ($range) {
+            $query->where($column, '>=', $range[0])
+                ->where($column, '<', $range[1]);
+            return;
+        }
+
+        $query->whereRaw("QUARTER({$column}) = ?", [$quarter]);
+    }
+
+    private function appendQuarterSqlFilter(&$where, &$params, $year, $quarter, $alias = 't')
+    {
+        if (!$quarter) {
+            return;
+        }
+
+        $range = $this->quarterDateRange($year, $quarter);
+        if ($range) {
+            $where .= " AND {$alias}.contact_start_date >= ? AND {$alias}.contact_start_date < ?";
+            $params[] = $range[0];
+            $params[] = $range[1];
+            return;
+        }
+
+        $where .= " AND QUARTER({$alias}.contact_start_date) = ?";
+        $params[] = $quarter;
+    }
+
     /**
      * Build WHERE clause for year and quarter filters
      */
@@ -813,19 +1107,22 @@ class AdminController extends Controller
     {
         $where = [];
         $params = [];
-        
+
         if ($year) {
             $where[] = "{$alias}.fiscalyear = ?";
             $params[] = $year;
         }
-        
-        if ($quarter) {
-            $where[] = "QUARTER({$alias}.contact_start_date) = ?";
-            $params[] = $quarter;
+
+        $quarterSql = '';
+        $quarterParams = [];
+        $this->appendQuarterSqlFilter($quarterSql, $quarterParams, $year, $quarter, $alias);
+        if ($quarterSql !== '') {
+            $where[] = ltrim(str_replace('AND', '', $quarterSql));
+            $params = array_merge($params, $quarterParams);
         }
-        
+
         $whereClause = !empty($where) ? 'WHERE ' . implode(' AND ', $where) : '';
-        
+
         return ['where' => $whereClause, 'params' => $params];
     }
 }

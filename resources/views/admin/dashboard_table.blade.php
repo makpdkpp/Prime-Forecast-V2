@@ -49,7 +49,7 @@
                     </div>
                 </div>
                 <div class="card-body py-2" style="display: none;">
-                    <form method="GET" action="{{ route('admin.dashboard.table') }}">
+                    <form method="GET" action="{{ route('admin.dashboard.table') }}" id="tableFilterForm">
                         <div class="row align-items-end">
                             <div class="col-md-2">
                                 <label class="mb-1"><small>ปีงบประมาณ (พ.ศ.):</small></label>
@@ -72,9 +72,21 @@
                                     <option value="4" {{ request('quarter') == '4' ? 'selected' : '' }}>Q4</option>
                                 </select>
                             </div>
+                            <div class="col-md-3">
+                                <label class="mb-1"><small>พนักงาน:</small></label>
+                                <select name="user_id" class="form-control form-control-sm">
+                                    <option value="">ทุกคน</option>
+                                    @foreach($availableUsers as $u)
+                                        <option value="{{ $u->user_id }}" {{ (string)request('user_id') === (string)$u->user_id ? 'selected' : '' }}>
+                                            {{ trim(($u->nname ?? '') . ' ' . ($u->surename ?? '')) }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
                             <div class="col-md-2">
-                                <button type="submit" class="btn btn-primary btn-sm btn-block">
-                                    <i class="fas fa-search"></i> กรอง
+                                <button type="submit" class="btn btn-primary btn-sm btn-block" id="tableFilterBtn">
+                                    <span id="tableFilterBtnText"><i class="fas fa-search"></i> กรอง</span>
+                                    <span id="tableFilterBtnSpinner" class="spinner-border spinner-border-sm ml-1" style="display:none;"></span>
                                 </button>
                             </div>
                             <div class="col-md-2">
@@ -86,6 +98,7 @@
                     </form>
                 </div>
             </div>
+
         </div>
     </div>
 
@@ -115,57 +128,6 @@
                         </tr>
                     </thead>
                     <tbody>
-                        @foreach($transactions as $t)
-                        <tr class="clickable-row" style="cursor: pointer;"
-                            data-id="{{ $t->transac_id }}"
-                            data-project="{{ $t->Product_detail }}"
-                            data-company="{{ $t->company->company ?? '-' }}"
-                            data-value="{{ number_format($t->product_value) }}"
-                            data-status="{{ $t->latestStep->step->level ?? '-' }}"
-                            data-priority="{{ $t->priority->priority ?? '-' }}"
-                            data-year="{{ $t->fiscalyear + 543 }}"
-                            data-start="{{ $t->contact_start_date }}"
-                            data-bidding="{{ $t->date_of_closing_of_sale }}"
-                            data-contract="{{ $t->sales_can_be_close }}"
-                            data-product="{{ $t->productGroup->product ?? '-' }}"
-                            data-user="{{ $t->user->nname ?? '' }} {{ $t->user->surename ?? '' }}"
-                            data-team="{{ $t->team->team ?? '-' }}"
-                            data-source="{{ $t->sourceBudget->Source_budge ?? '-' }}"
-                            data-contact-person="{{ $t->contact_person ?? '-' }}"
-                            data-contact-phone="{{ $t->contact_phone ?? '-' }}"
-                            data-contact-email="{{ $t->contact_email ?? '-' }}"
-                            data-contact-note="{{ $t->contact_note ?? '-' }}"
-                            data-remark="{{ $t->remark }}">
-                            <td>{{ $t->Product_detail }}</td>
-                            <td>{{ $t->company->company ?? '-' }}</td>
-                            <td>{{ number_format($t->product_value) }}</td>
-                            <td>{{ $t->latestStep->step->level ?? '-' }}</td>
-                            <td>{{ $t->priority->priority ?? '-' }}</td>
-                            <td>{{ $t->fiscalyear + 543 }}</td>
-                            <td>{{ thaiDate($t->contact_start_date) }}</td>
-                            <td>{{ thaiDate($t->date_of_closing_of_sale) }}</td>
-                            <td>{{ thaiDate($t->sales_can_be_close) }}</td>
-                            <td>{{ $t->productGroup->product ?? '-' }}</td>
-                            <td>{{ $t->user->nname ?? '' }} {{ $t->user->surename ?? '' }}</td>
-                            <td>{{ $t->team->team ?? '-' }}</td>
-                            <td>{{ $t->remark }}</td>
-                            <td class="text-center">
-                                <a href="{{ route('admin.sales.edit', $t->transac_id) }}" class="btn btn-sm btn-info" title="แก้ไข">
-                                    <i class="fas fa-pencil-alt"></i>
-                                </a>
-                                <a href="{{ route('admin.sales.transfer', $t->transac_id) }}" class="btn btn-sm btn-warning" title="โอนข้อมูล">
-                                    <i class="fas fa-exchange-alt"></i>
-                                </a>
-                                <form action="{{ route('admin.sales.delete', $t->transac_id) }}" method="POST" style="display: inline;" onsubmit="return confirm('คุณแน่ใจหรือไม่ว่าต้องการลบข้อมูลนี้?');">
-                                    @csrf
-                                    @method('DELETE')
-                                    <button type="submit" class="btn btn-sm btn-danger" title="ลบ">
-                                        <i class="fas fa-trash"></i>
-                                    </button>
-                                </form>
-                            </td>
-                        </tr>
-                        @endforeach
                     </tbody>
                 </table>
             </div>
@@ -284,12 +246,40 @@
 
 <script>
 $(function () {
-    $("#salesTable").DataTable({
+    const csrfToken = '{{ csrf_token() }}';
+
+    const table = $("#salesTable").DataTable({
+        "processing": true,
+        "serverSide": true,
         "responsive": false,
         "lengthChange": true,
         "autoWidth": false,
         "language": { "url": "//cdn.datatables.net/plug-ins/1.13.7/i18n/th.json" },
         "dom": 'lBfrtip',
+        "ajax": {
+            "url": "{{ route('admin.dashboard.table.data') }}",
+            "data": function(d) {
+                d.year = $('select[name="year"]').val() || '{{ $year }}';
+                d.quarter = $('select[name="quarter"]').val() || '{{ $quarter }}';
+                d.user_id = $('select[name="user_id"]').val() || '{{ $userId }}';
+            }
+        },
+        "columns": [
+            { data: 'project' },
+            { data: 'company' },
+            { data: 'value', render: function(v){ return Number(v || 0).toLocaleString('th-TH'); } },
+            { data: 'status' },
+            { data: 'priority' },
+            { data: 'year' },
+            { data: 'start', render: function(v){ return formatThaiDate(v); } },
+            { data: 'bidding', render: function(v){ return formatThaiDate(v); } },
+            { data: 'contract', render: function(v){ return formatThaiDate(v); } },
+            { data: 'product' },
+            { data: 'user' },
+            { data: 'team' },
+            { data: 'remark' },
+            { data: 'action', orderable: false, searchable: false, className: 'text-center' }
+        ],
         "buttons": [
             {
                 extend: 'excelHtml5',
@@ -307,35 +297,69 @@ $(function () {
                 className: 'btn btn-info'
             }
         ],
-        "order": [[0, 'desc']]
+        "order": [[6, 'desc']]
     });
 
     // Row click to show detail modal
-    $('#salesTable tbody').on('click', 'tr.clickable-row', function(e) {
+    $('#salesTable tbody').on('click', 'tr', function(e) {
         // Don't trigger if clicking on action buttons
         if ($(e.target).closest('td:last-child').length) return;
-        
-        var row = $(this);
-        $('#modal-project').text(row.data('project'));
-        $('#modal-company').text(row.data('company'));
-        $('#modal-value').text(row.data('value'));
-        $('#modal-status').text(row.data('status'));
-        $('#modal-priority').text(row.data('priority'));
-        $('#modal-year').text(row.data('year'));
-        $('#modal-start').text(row.data('start') ? formatThaiDate(row.data('start')) : '-');
-        $('#modal-bidding').text(row.data('bidding') ? formatThaiDate(row.data('bidding')) : '-');
-        $('#modal-contract').text(row.data('contract') ? formatThaiDate(row.data('contract')) : '-');
-        $('#modal-product').text(row.data('product'));
-        $('#modal-user').text(row.data('user'));
-        $('#modal-team').text(row.data('team'));
-        $('#modal-source').text(row.data('source'));
-        $('#modal-contact-person').text(row.data('contact-person'));
-        $('#modal-contact-phone').text(row.data('contact-phone'));
-        $('#modal-contact-email').text(row.data('contact-email'));
-        $('#modal-contact-note').text(row.data('contact-note'));
-        $('#modal-remark').text(row.data('remark') || '-');
+
+        const row = table.row(this).data();
+        if (!row) return;
+
+        $('#modal-project').text(row.project || '-');
+        $('#modal-company').text(row.company || '-');
+        $('#modal-value').text(Number(row.value || 0).toLocaleString('th-TH'));
+        $('#modal-status').text(row.status || '-');
+        $('#modal-priority').text(row.priority || '-');
+        $('#modal-year').text(row.year || '-');
+        $('#modal-start').text(formatThaiDate(row.start));
+        $('#modal-bidding').text(formatThaiDate(row.bidding));
+        $('#modal-contract').text(formatThaiDate(row.contract));
+        $('#modal-product').text(row.product || '-');
+        $('#modal-user').text(row.user || '-');
+        $('#modal-team').text(row.team || '-');
+        $('#modal-source').text(row.source || '-');
+        $('#modal-contact-person').text(row.contact_person || '-');
+        $('#modal-contact-phone').text(row.contact_phone || '-');
+        $('#modal-contact-email').text(row.contact_email || '-');
+        $('#modal-contact-note').text(row.contact_note || '-');
+        $('#modal-remark').text(row.remark || '-');
         
         $('#viewDetailModal').modal('show');
+    });
+
+    $('#salesTable tbody').on('click', '.js-delete-sale', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+
+        const deleteUrl = $(this).data('delete-url');
+        if (!deleteUrl) return;
+
+        if (!confirm('คุณแน่ใจหรือไม่ว่าต้องการลบข้อมูลนี้?')) {
+            return;
+        }
+
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = deleteUrl;
+        form.style.display = 'none';
+
+        const csrfInput = document.createElement('input');
+        csrfInput.type = 'hidden';
+        csrfInput.name = '_token';
+        csrfInput.value = csrfToken;
+
+        const methodInput = document.createElement('input');
+        methodInput.type = 'hidden';
+        methodInput.name = '_method';
+        methodInput.value = 'DELETE';
+
+        form.appendChild(csrfInput);
+        form.appendChild(methodInput);
+        document.body.appendChild(form);
+        form.submit();
     });
 
     // Helper function to format date to Thai format
@@ -351,6 +375,12 @@ $(function () {
             return dateStr;
         }
     }
+
+    $('#tableFilterForm').on('submit', function () {
+        $('#tableFilterBtn').prop('disabled', true);
+        $('#tableFilterBtnText').text('กำลังกรอง...');
+        $('#tableFilterBtnSpinner').show();
+    });
 });
 </script>
 @stop
