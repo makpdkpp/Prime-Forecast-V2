@@ -95,6 +95,9 @@
                         <th>วันยื่น Bidding</th>
                         <th>วันเซ็นสัญญา</th>
                         <th>สถานะ</th>
+                        <th>ผู้ติดต่อ</th>
+                        <th>เบอร์โทร</th>
+                        <th>อีเมล</th>
                         <th>หมายเหตุ</th>
                         <th>Action</th>
                     </tr>
@@ -114,6 +117,9 @@
                         <td>{{ thaiDate($t->date_of_closing_of_sale) }}</td>
                         <td>{{ thaiDate($t->sales_can_be_close) }}</td>
                         <td>{{ $t->latestStep->step->level ?? '-' }}</td>
+                        <td>{{ $t->contact_person ?? '-' }}</td>
+                        <td>{{ $t->contact_phone ?? '-' }}</td>
+                        <td>{{ $t->contact_email ?? '-' }}</td>
                         <td>{{ $t->remark }}</td>
                         <td class="text-center">
                             <a href="{{ route('user.sales.edit', $t->transac_id) }}" class="btn btn-sm btn-info" title="แก้ไข">
