@@ -44,6 +44,7 @@ Route::middleware(['auth'])->group(function () {
     Route::middleware(['admin'])->prefix('admin')->name('admin.')->group(function () {
         Route::get('/dashboard', [AdminController::class, 'dashboard'])->name('dashboard');
         Route::get('/dashboard/table', [AdminController::class, 'dashboardTable'])->name('dashboard.table');
+        Route::get('/dashboard/win-projects/{userId}', [AdminController::class, 'winProjectsByUser'])->name('dashboard.winProjects');
         Route::get('/sales/{id}/edit', [AdminController::class, 'editSales'])->name('sales.edit');
         Route::put('/sales/{id}', [AdminController::class, 'updateSales'])->name('sales.update');
         Route::delete('/sales/{id}', [AdminController::class, 'deleteSales'])->name('sales.delete');

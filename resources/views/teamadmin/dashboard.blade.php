@@ -17,7 +17,7 @@
                         @if(request('year') || request('quarter'))
                             <span class="badge badge-info mr-2">
                                 @if(request('year'))
-                                    ปี {{ request('year') }}
+                                    ปี {{ request('year') + 543 }}
                                 @endif
                                 @if(request('quarter'))
                                     @if(request('year')) / @endif

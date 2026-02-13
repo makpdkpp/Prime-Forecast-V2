@@ -403,7 +403,7 @@ class UserController extends Controller
             $companyRequest = CompanyRequest::create([
                 'company_name' => $request->company_name,
                 'notes' => $request->notes ?? '',
-                'requested_by_user_id' => auth()->id(),
+                'user_id' => auth()->id(),
                 'request_date' => now(),
                 'status' => 'pending',
             ]);
@@ -449,31 +449,37 @@ class UserController extends Controller
     private function getSaleStepData($userId, $year = null, $quarter = null)
     {
         $params = [$userId];
-        $whereClause = 'WHERE t.user_id = ?';
+        $extraWhere = "";
         
         if ($year) {
-            $whereClause .= ' AND t.fiscalyear = ?';
+            $extraWhere .= ' AND t.fiscalyear = ?';
             $params[] = $year;
         }
         
         if ($quarter) {
-            $whereClause .= ' AND QUARTER(t.contact_start_date) = ?';
+            $extraWhere .= ' AND QUARTER(t.contact_start_date) = ?';
             $params[] = $quarter;
         }
         
         return DB::select("
             SELECT 
                 DATE_FORMAT(ts.date, '%Y-%m') as month,
-                SUM(CASE WHEN s.level = 'Present' THEN 1 ELSE 0 END) as present_value,
-                SUM(CASE WHEN s.level = 'Budgeted' THEN 1 ELSE 0 END) as budgeted_value,
-                SUM(CASE WHEN s.level = 'TOR' THEN 1 ELSE 0 END) as tor_value,
-                SUM(CASE WHEN s.level = 'Bidding' THEN 1 ELSE 0 END) as bidding_value,
-                SUM(CASE WHEN s.level = 'Win' THEN 1 ELSE 0 END) as win_value,
-                SUM(CASE WHEN s.level = 'Lost' THEN 1 ELSE 0 END) as lost_value
-            FROM transactional_step ts
+                SUM(CASE WHEN s.orderlv = 1 THEN t.product_value ELSE 0 END) as present_value,
+                SUM(CASE WHEN s.orderlv = 2 THEN t.product_value ELSE 0 END) as budgeted_value,
+                SUM(CASE WHEN s.orderlv = 3 THEN t.product_value ELSE 0 END) as tor_value,
+                SUM(CASE WHEN s.orderlv = 4 THEN t.product_value ELSE 0 END) as bidding_value,
+                SUM(CASE WHEN s.orderlv = 5 THEN t.product_value ELSE 0 END) as win_value,
+                SUM(CASE WHEN s.orderlv = 6 THEN t.product_value ELSE 0 END) as lost_value
+            FROM transactional t
+            JOIN transactional_step ts ON t.transac_id = ts.transac_id
             JOIN step s ON s.level_id = ts.level_id
-            JOIN transactional t ON t.transac_id = ts.transac_id
-            {$whereClause}
+            WHERE (ts.transacstep_id, ts.transac_id) IN (
+                SELECT MAX(ts2.transacstep_id), ts2.transac_id
+                FROM transactional_step ts2
+                GROUP BY ts2.transac_id
+            )
+            AND t.user_id = ?
+            {$extraWhere}
             GROUP BY DATE_FORMAT(ts.date, '%Y-%m')
             ORDER BY month
         ", $params);
@@ -481,27 +487,72 @@ class UserController extends Controller
 
     private function getWinForecastData($userId, $year = null, $quarter = null)
     {
-        $params = [$userId];
-        $whereClause = 'WHERE t.user_id = ?';
-        
+        // Target from user_forecast_target
+        $targetParams = [$userId];
+        $targetWhere = "";
         if ($year) {
-            $whereClause .= ' AND t.fiscalyear = ?';
-            $params[] = $year;
+            $targetWhere .= " AND fiscal_year = ?";
+            $targetParams[] = $year;
         }
-        
+        $targetResult = DB::select("
+            SELECT COALESCE(SUM(target_value), 0) as target_value
+            FROM user_forecast_target
+            WHERE user_id = ? {$targetWhere}
+        ", $targetParams);
+        $target = $targetResult[0]->target_value ?? 0;
+
+        // Forecast = sum of all transactions for this user
+        $forecastParams = [$userId];
+        $forecastWhere = "";
+        if ($year) {
+            $forecastWhere .= " AND t.fiscalyear = ?";
+            $forecastParams[] = $year;
+        }
         if ($quarter) {
-            $whereClause .= ' AND QUARTER(t.contact_start_date) = ?';
-            $params[] = $quarter;
+            $forecastWhere .= " AND QUARTER(t.contact_start_date) = ?";
+            $forecastParams[] = $quarter;
         }
-        
-        $result = DB::select("
-            SELECT 
-                COALESCE(SUM(t.product_value), 0) as total_value
+        $forecastResult = DB::select("
+            SELECT COALESCE(SUM(t.product_value), 0) as forecast_value
             FROM transactional t
-            {$whereClause}
-        ", $params);
-        
-        return $result[0] ?? (object)['Target' => 0, 'Forecast' => 0, 'Win' => 0];
+            WHERE t.user_id = ? {$forecastWhere}
+        ", $forecastParams);
+        $forecast = $forecastResult[0]->forecast_value ?? 0;
+
+        // Win = sum of transactions whose latest step is WIN (level = 5)
+        $winParams = [$userId];
+        $winWhere = "";
+        if ($year) {
+            $winWhere .= " AND t.fiscalyear = ?";
+            $winParams[] = $year;
+        }
+        if ($quarter) {
+            $winWhere .= " AND QUARTER(t.contact_start_date) = ?";
+            $winParams[] = $quarter;
+        }
+        $winResult = DB::select("
+            SELECT COALESCE(SUM(t.product_value), 0) as win_value
+            FROM transactional t
+            JOIN (
+                SELECT ts.transac_id
+                FROM transactional_step ts
+                JOIN step s ON s.level_id = ts.level_id
+                WHERE s.orderlv = 5
+                AND (ts.transacstep_id, ts.transac_id) IN (
+                    SELECT MAX(ts2.transacstep_id), ts2.transac_id
+                    FROM transactional_step ts2
+                    GROUP BY ts2.transac_id
+                )
+            ) wintrans ON wintrans.transac_id = t.transac_id
+            WHERE t.user_id = ? {$winWhere}
+        ", $winParams);
+        $win = $winResult[0]->win_value ?? 0;
+
+        return (object)[
+            'Target' => $target,
+            'Forecast' => $forecast,
+            'Win' => $win,
+        ];
     }
 
     private function getSumValuePercentData($userId, $year = null, $quarter = null)

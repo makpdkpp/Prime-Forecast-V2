@@ -149,7 +149,7 @@
                             <label for="fiscalyear">ปีงบประมาณ <span class="text-danger">*</span></label>
                             <select name="fiscalyear" id="fiscalyear" class="form-control @error('fiscalyear') is-invalid @enderror" required>
                                 @for($year = date('Y') - 2; $year <= date('Y') + 5; $year++)
-                                    <option value="{{ $year }}" {{ old('fiscalyear', $transaction->fiscalyear) == $year ? 'selected' : '' }}>{{ $year }}</option>
+                                    <option value="{{ $year }}" {{ old('fiscalyear', $transaction->fiscalyear) == $year ? 'selected' : '' }}>{{ $year + 543 }}</option>
                                 @endfor
                             </select>
                             @error('fiscalyear')

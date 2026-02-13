@@ -21,7 +21,7 @@
                         @if(request('year') || request('quarter'))
                             <span class="badge badge-success mr-2">
                                 @if(request('year'))
-                                    ปี {{ request('year') }}
+                                    ปี {{ request('year') + 543 }}
                                 @endif
                                 @if(request('quarter'))
                                     @if(request('year')) / @endif
@@ -43,7 +43,7 @@
                                     <option value="">ทุกปี</option>
                                     @foreach($availableYears as $y)
                                         <option value="{{ $y }}" {{ request('year') == $y ? 'selected' : '' }}>
-                                            {{ $y }}
+                                            {{ $y + 543 }}
                                         </option>
                                     @endforeach
                                 </select>
@@ -106,7 +106,7 @@
                         <td>{{ $t->company->company ?? '-' }}</td>
                         <td>{{ number_format($t->product_value) }}</td>
                         <td>{{ $t->sourceBudget->Source_budge ?? '-' }}</td>
-                        <td>{{ $t->fiscalyear }}</td>
+                        <td>{{ $t->fiscalyear + 543 }}</td>
                         <td>{{ $t->productGroup->product ?? '-' }}</td>
                         <td>{{ $t->team->team ?? '-' }}</td>
                         <td>{{ $t->priority->priority ?? '-' }}</td>

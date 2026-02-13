@@ -17,7 +17,7 @@
                         @if(request('year') || request('quarter'))
                             <span class="badge badge-info mr-2">
                                 @if(request('year'))
-                                    ปี {{ request('year') }}
+                                    ปี {{ request('year') + 543 }}
                                 @endif
                                 @if(request('quarter'))
                                     @if(request('year')) / @endif
@@ -175,6 +175,23 @@
         <div class="col-md-6">
             <div class="card card-info">
                 <div class="card-header">
+                    <h3 class="card-title">กราฟเปรียบเทียบ Target/Forecast/Win</h3>
+                    <div class="card-tools">
+                        <button type="button" class="btn btn-tool" data-card-widget="maximize"><i class="fas fa-expand"></i></button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <canvas id="targetForecastWinChart" height="180"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts Row 4 -->
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card card-info">
+                <div class="card-header">
                     <h3 class="card-title">TOP 10 ประเภทโซลูชั่น</h3>
                     <div class="card-tools">
                         <button type="button" class="btn btn-tool" data-card-widget="maximize"><i class="fas fa-expand"></i></button>
@@ -185,11 +202,7 @@
                 </div>
             </div>
         </div>
-    </div>
-
-    <!-- Charts Row 4 -->
-    <div class="row">
-        <div class="col-md-12">
+        <div class="col-md-6">
             <div class="card card-primary">
                 <div class="card-header">
                     <h3 class="card-title">ยอดขาย Top 10 ของลูกค้า</h3>
@@ -198,7 +211,50 @@
                     </div>
                 </div>
                 <div class="card-body">
-                    <canvas id="topCustomerChart" height="100"></canvas>
+                    <canvas id="topCustomerChart" height="180"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- Modal: Win Projects by Person -->
+    <div class="modal fade" id="winProjectsModal" tabindex="-1" role="dialog">
+        <div class="modal-dialog modal-lg" role="document">
+            <div class="modal-content">
+                <div class="modal-header bg-success">
+                    <h5 class="modal-title text-white"><i class="fas fa-trophy"></i> โปรเจคที่ Win - <span id="winProjectsUserName"></span></h5>
+                    <button type="button" class="close text-white" data-dismiss="modal"><span>&times;</span></button>
+                </div>
+                <div class="modal-body">
+                    <div id="winProjectsLoading" class="text-center py-4" style="display:none;">
+                        <i class="fas fa-spinner fa-spin fa-2x"></i>
+                        <p class="mt-2">กำลังโหลดข้อมูล...</p>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover" id="winProjectsTable" style="display:none;">
+                            <thead class="thead-dark">
+                                <tr>
+                                    <th>#</th>
+                                    <th>โปรเจค</th>
+                                    <th>ลูกค้า</th>
+                                    <th>กลุ่มสินค้า</th>
+                                    <th class="text-right">มูลค่า (บาท)</th>
+                                    <th>วันที่ Win</th>
+                                </tr>
+                            </thead>
+                            <tbody id="winProjectsBody"></tbody>
+                            <tfoot>
+                                <tr class="font-weight-bold bg-light">
+                                    <td colspan="4" class="text-right">รวมทั้งหมด</td>
+                                    <td class="text-right" id="winProjectsTotal"></td>
+                                    <td></td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                    <div id="winProjectsEmpty" class="text-center text-muted py-4" style="display:none;">
+                        <i class="fas fa-inbox fa-2x"></i>
+                        <p class="mt-2">ไม่พบข้อมูลโปรเจค</p>
+                    </div>
                 </div>
             </div>
         </div>
@@ -215,6 +271,7 @@
     const saleStatusData = @json($saleStatus);
     const saleStatusValueData = @json($saleStatusValue);
     const topProductsData = @json($topProducts);
+    const targetForecastWinData = @json($targetForecastWin);
     const topCustomersData = @json($topCustomers);
 
     // Win Status Value Chart (Cumulative Win by Month)
@@ -256,28 +313,65 @@
         const ctx = document.getElementById('teamSumChart');
         if (!ctx) return;
         
+        const teamColors = [
+            'rgba(54, 162, 235, 0.8)',
+            'rgba(255, 99, 132, 0.8)',
+            'rgba(75, 192, 192, 0.8)',
+            'rgba(255, 206, 86, 0.8)',
+            'rgba(153, 102, 255, 0.8)',
+            'rgba(255, 159, 64, 0.8)',
+            'rgba(40, 167, 69, 0.8)',
+            'rgba(220, 53, 69, 0.8)',
+            'rgba(23, 162, 184, 0.8)',
+            'rgba(108, 117, 125, 0.8)'
+        ];
+        const teamBorders = [
+            'rgba(54, 162, 235, 1)',
+            'rgba(255, 99, 132, 1)',
+            'rgba(75, 192, 192, 1)',
+            'rgba(255, 206, 86, 1)',
+            'rgba(153, 102, 255, 1)',
+            'rgba(255, 159, 64, 1)',
+            'rgba(40, 167, 69, 1)',
+            'rgba(220, 53, 69, 1)',
+            'rgba(23, 162, 184, 1)',
+            'rgba(108, 117, 125, 1)'
+        ];
+        
         const labels = data.map(r => r.team);
         const values = data.map(r => Number(r.total_value));
+        const bgColors = data.map((_, i) => teamColors[i % teamColors.length]);
+        const bdColors = data.map((_, i) => teamBorders[i % teamBorders.length]);
         
         new Chart(ctx.getContext('2d'), {
             type: 'bar',
             data: {
                 labels: labels,
                 datasets: [{
-                    label: 'ยอดขาย (บาท)',
+                    label: 'ยอดขาย Win (บาท)',
                     data: values,
-                    backgroundColor: 'rgba(54, 162, 235, 0.8)'
+                    backgroundColor: bgColors,
+                    borderColor: bdColors,
+                    borderWidth: 1
                 }]
             },
             options: {
                 responsive: true,
-                indexAxis: 'y',
                 scales: {
-                    x: {
+                    y: {
                         beginAtZero: true,
                         ticks: {
                             callback: function(value) {
                                 return value.toLocaleString('th-TH');
+                            }
+                        }
+                    }
+                },
+                plugins: {
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return context.dataset.label + ': ' + Number(context.raw).toLocaleString('th-TH') + ' บาท';
                             }
                         }
                     }
@@ -291,28 +385,57 @@
         const ctx = document.getElementById('personSumChart');
         if (!ctx) return;
         
+        const personColors = [
+            'rgba(75, 192, 192, 0.8)',
+            'rgba(54, 162, 235, 0.8)',
+            'rgba(255, 99, 132, 0.8)',
+            'rgba(255, 206, 86, 0.8)',
+            'rgba(153, 102, 255, 0.8)',
+            'rgba(255, 159, 64, 0.8)',
+            'rgba(40, 167, 69, 0.8)',
+            'rgba(220, 53, 69, 0.8)',
+            'rgba(23, 162, 184, 0.8)',
+            'rgba(108, 117, 125, 0.8)'
+        ];
+        
         const labels = data.map(r => r.nname + ' ' + (r.surename || ''));
         const values = data.map(r => Number(r.total_value));
+        const bgColors = data.map((_, i) => personColors[i % personColors.length]);
         
-        new Chart(ctx.getContext('2d'), {
+        const personChart = new Chart(ctx.getContext('2d'), {
             type: 'bar',
             data: {
                 labels: labels,
                 datasets: [{
-                    label: 'ยอดขาย (บาท)',
+                    label: 'ยอดขาย Win (บาท)',
                     data: values,
-                    backgroundColor: 'rgba(75, 192, 192, 0.8)'
+                    backgroundColor: bgColors
                 }]
             },
             options: {
                 responsive: true,
-                indexAxis: 'y',
+                onClick: function(evt, elements) {
+                    if (elements.length === 0) return;
+                    const idx = elements[0].index;
+                    const person = data[idx];
+                    if (!person || !person.user_id) return;
+                    showWinProjects(person.user_id, person.nname + ' ' + (person.surename || ''));
+                },
                 scales: {
-                    x: {
+                    y: {
                         beginAtZero: true,
                         ticks: {
                             callback: function(value) {
                                 return value.toLocaleString('th-TH');
+                            }
+                        }
+                    }
+                },
+                plugins: {
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return context.dataset.label + ': ' + Number(context.raw).toLocaleString('th-TH') + ' บาท';
                             }
                         }
                     }
@@ -321,67 +444,184 @@
         });
     }
 
-    // Sale Status Chart
+    function showWinProjects(userId, userName) {
+        const modal = $('#winProjectsModal');
+        const loading = $('#winProjectsLoading');
+        const table = $('#winProjectsTable');
+        const tbody = $('#winProjectsBody');
+        const total = $('#winProjectsTotal');
+        const empty = $('#winProjectsEmpty');
+
+        $('#winProjectsUserName').text(userName);
+        loading.show();
+        table.hide();
+        empty.hide();
+        tbody.empty();
+        modal.modal('show');
+
+        const params = new URLSearchParams(window.location.search);
+        let url = '/admin/dashboard/win-projects/' + userId;
+        if (params.toString()) {
+            url += '?' + params.toString();
+        }
+
+        fetch(url)
+            .then(res => res.json())
+            .then(projects => {
+                loading.hide();
+                if (!projects.length) {
+                    empty.show();
+                    return;
+                }
+                let sumValue = 0;
+                projects.forEach((p, i) => {
+                    const val = Number(p.product_value) || 0;
+                    sumValue += val;
+                    tbody.append(`
+                        <tr>
+                            <td>${i + 1}</td>
+                            <td>${p.Product_detail || '-'}</td>
+                            <td>${p.company || '-'}</td>
+                            <td>${p.product_group || '-'}</td>
+                            <td class="text-right">${val.toLocaleString('th-TH', {minimumFractionDigits: 2})}</td>
+                            <td>${p.win_date || '-'}</td>
+                        </tr>
+                    `);
+                });
+                total.text(sumValue.toLocaleString('th-TH', {minimumFractionDigits: 2}));
+                table.show();
+            })
+            .catch(() => {
+                loading.hide();
+                empty.show();
+            });
+    }
+
+    // Sale Status Chart (Grouped Bar by Month)
     function renderSaleStatusChart(data) {
         const ctx = document.getElementById('salestatusChart');
         if (!ctx) return;
-        
-        const labels = data.map(r => r.level);
-        const values = data.map(r => Number(r.count));
-        
+
+        const stepConfig = {
+            1: { label: 'นำเสนอ Solution', color: 'rgba(54, 162, 235, 0.8)', border: 'rgba(54, 162, 235, 1)' },
+            2: { label: 'ตั้งงบประมาณ', color: 'rgba(255, 206, 86, 0.8)', border: 'rgba(255, 206, 86, 1)' },
+            3: { label: 'ร่าง TOR', color: 'rgba(255, 159, 64, 0.8)', border: 'rgba(255, 159, 64, 1)' },
+            4: { label: 'Bidding / เสนอราคา', color: 'rgba(153, 102, 255, 0.8)', border: 'rgba(153, 102, 255, 1)' },
+            5: { label: 'WIN', color: 'rgba(40, 167, 69, 0.8)', border: 'rgba(40, 167, 69, 1)' },
+            6: { label: 'LOST', color: 'rgba(220, 53, 69, 0.8)', border: 'rgba(220, 53, 69, 1)' }
+        };
+
+        const months = [...new Set(data.map(r => r.sale_month))].sort();
+
+        const datasets = Object.keys(stepConfig).map(orderlv => {
+            const cfg = stepConfig[orderlv];
+            const values = months.map(m => {
+                const row = data.find(r => r.sale_month === m && r.orderlv == orderlv);
+                return row ? Number(row.count) : 0;
+            });
+            return {
+                label: cfg.label,
+                data: values,
+                backgroundColor: cfg.color,
+                borderColor: cfg.border,
+                borderWidth: 1
+            };
+        });
+
         new Chart(ctx.getContext('2d'), {
-            type: 'pie',
+            type: 'bar',
             data: {
-                labels: labels,
-                datasets: [{
-                    data: values,
-                    backgroundColor: [
-                        'rgba(255, 99, 132, 0.8)',
-                        'rgba(54, 162, 235, 0.8)',
-                        'rgba(255, 206, 86, 0.8)',
-                        'rgba(75, 192, 192, 0.8)',
-                        'rgba(153, 102, 255, 0.8)',
-                        'rgba(255, 159, 64, 0.8)'
-                    ]
-                }]
+                labels: months,
+                datasets: datasets
             },
             options: {
                 responsive: true,
+                scales: {
+                    x: { stacked: false },
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            stepSize: 1,
+                            callback: function(value) {
+                                return Number.isInteger(value) ? value : '';
+                            }
+                        }
+                    }
+                },
                 plugins: {
                     legend: {
-                        position: 'right'
+                        position: 'top'
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return context.dataset.label + ': ' + context.raw + ' รายการ';
+                            }
+                        }
                     }
                 }
             }
         });
     }
 
-    // Status Value Chart
+    // Status Value Chart (Grouped Bar by Month)
     function renderStatusValueChart(data) {
         const ctx = document.getElementById('statusValueChart');
         if (!ctx) return;
-        
-        const labels = data.map(r => r.level);
-        const values = data.map(r => Number(r.total_value));
-        
+
+        const stepConfig = {
+            1: { label: 'นำเสนอ Solution', color: 'rgba(54, 162, 235, 0.8)', border: 'rgba(54, 162, 235, 1)' },
+            2: { label: 'ตั้งงบประมาณ', color: 'rgba(255, 206, 86, 0.8)', border: 'rgba(255, 206, 86, 1)' },
+            3: { label: 'ร่าง TOR', color: 'rgba(255, 159, 64, 0.8)', border: 'rgba(255, 159, 64, 1)' },
+            4: { label: 'Bidding / เสนอราคา', color: 'rgba(153, 102, 255, 0.8)', border: 'rgba(153, 102, 255, 1)' },
+            5: { label: 'WIN', color: 'rgba(40, 167, 69, 0.8)', border: 'rgba(40, 167, 69, 1)' },
+            6: { label: 'LOST', color: 'rgba(220, 53, 69, 0.8)', border: 'rgba(220, 53, 69, 1)' }
+        };
+
+        const months = [...new Set(data.map(r => r.sale_month))].sort();
+
+        const datasets = Object.keys(stepConfig).map(orderlv => {
+            const cfg = stepConfig[orderlv];
+            const values = months.map(m => {
+                const row = data.find(r => r.sale_month === m && r.orderlv == orderlv);
+                return row ? Number(row.total_value) : 0;
+            });
+            return {
+                label: cfg.label,
+                data: values,
+                backgroundColor: cfg.color,
+                borderColor: cfg.border,
+                borderWidth: 1
+            };
+        });
+
         new Chart(ctx.getContext('2d'), {
             type: 'bar',
             data: {
-                labels: labels,
-                datasets: [{
-                    label: 'มูลค่า (บาท)',
-                    data: values,
-                    backgroundColor: 'rgba(153, 102, 255, 0.8)'
-                }]
+                labels: months,
+                datasets: datasets
             },
             options: {
                 responsive: true,
                 scales: {
+                    x: { stacked: false },
                     y: {
                         beginAtZero: true,
                         ticks: {
                             callback: function(value) {
                                 return value.toLocaleString('th-TH');
+                            }
+                        }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        position: 'top'
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return context.dataset.label + ': ' + Number(context.raw).toLocaleString('th-TH') + ' บาท';
                             }
                         }
                     }
@@ -459,12 +699,76 @@
         });
     }
 
+    // Target/Forecast/Win Chart
+    function renderTargetForecastWinChart(data) {
+        const ctx = document.getElementById('targetForecastWinChart');
+        if (!ctx) return;
+
+        const labels = data.map(r => r.nname + ' ' + (r.surename || ''));
+
+        new Chart(ctx.getContext('2d'), {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: 'Target',
+                        data: data.map(r => Number(r.target_value)),
+                        backgroundColor: 'rgba(153, 102, 255, 0.6)',
+                        borderColor: 'rgba(153, 102, 255, 1)',
+                        borderWidth: 1
+                    },
+                    {
+                        label: 'Forecast',
+                        data: data.map(r => Number(r.forecast_value)),
+                        backgroundColor: 'rgba(54, 162, 235, 0.6)',
+                        borderColor: 'rgba(54, 162, 235, 1)',
+                        borderWidth: 1
+                    },
+                    {
+                        label: 'Win',
+                        data: data.map(r => Number(r.win_value)),
+                        backgroundColor: 'rgba(40, 167, 69, 0.8)',
+                        borderColor: 'rgba(40, 167, 69, 1)',
+                        borderWidth: 1
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return value.toLocaleString('th-TH');
+                            }
+                        }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        position: 'top'
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return context.dataset.label + ': ' + Number(context.raw).toLocaleString('th-TH') + ' บาท';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
     // Initialize all charts
     renderWinStatusValueChart(cumulativeWinData);
     renderTeamSumChart(sumByTeamData);
     renderPersonSumChart(sumByPersonData);
     renderSaleStatusChart(saleStatusData);
     renderStatusValueChart(saleStatusValueData);
+    renderTargetForecastWinChart(targetForecastWinData);
     renderTopProductsChart(topProductsData);
     renderTopCustomerChart(topCustomersData);
 })();

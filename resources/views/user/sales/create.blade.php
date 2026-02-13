@@ -64,10 +64,11 @@
                                 <select name="fiscalyear" id="fiscalyear" class="form-control" required>
                                     <option value="">-- เลือกปีงบประมาณ --</option>
                                     @php
-                                        $currentBuddhistYear = date('Y') + 543;
+                                        $currentYear = date('Y');
                                         for ($i = 0; $i < 5; $i++) {
-                                            $year = $currentBuddhistYear + $i;
-                                            echo "<option value=\"$year\">$year</option>";
+                                            $year = $currentYear + $i;
+                                            $displayYear = $year + 543;
+                                            echo "<option value=\"$year\">$displayYear</option>";
                                         }
                                     @endphp
                                 </select>
