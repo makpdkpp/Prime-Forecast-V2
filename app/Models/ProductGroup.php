@@ -11,7 +11,7 @@ class ProductGroup extends Model
 
     protected $table = 'product_group';
     protected $primaryKey = 'product_id';
-    public $timestamps = false;
+    public $timestamps = true;
 
     protected $fillable = ['product'];
 }

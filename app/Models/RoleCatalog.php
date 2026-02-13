@@ -11,7 +11,7 @@ class RoleCatalog extends Model
 
     protected $table = 'role_catalog';
     protected $primaryKey = 'role_id';
-    public $timestamps = false;
+    public $timestamps = true;
 
     protected $fillable = ['role'];
 }

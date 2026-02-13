@@ -52,7 +52,6 @@ class UserManagementController extends Controller
             'surename' => $request->surename,
             'role_id' => $request->role_id,
             'position_id' => $request->position_id,
-            'forecast' => $request->forecast ?? 0,
             'is_active' => 0, // Inactive until user sets password
             'token' => $token,
             'token_expiry' => $tokenExpiry,
@@ -129,7 +128,6 @@ class UserManagementController extends Controller
             'surename' => $request->surename,
             'role_id' => $request->role_id,
             'position_id' => $request->position_id,
-            'forecast' => $request->forecast ?? 0,
         ];
 
         if ($request->filled('password')) {

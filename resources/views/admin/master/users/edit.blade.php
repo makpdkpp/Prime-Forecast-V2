@@ -101,7 +101,7 @@
                                 <table class="table table-bordered">
                                     <thead>
                                         <tr>
-                                            <th width="30%">ปีงบประมาณ (พ.ศ.)</th>
+                                            <th width="30%">ปีงบประมาณ (ค.ศ.)</th>
                                             <th width="50%">Target (บาท)</th>
                                             <th width="20%">จัดการ</th>
                                         </tr>
@@ -109,13 +109,13 @@
                                     <tbody id="targetYearTable">
                                         @forelse($userTargets as $target)
                                         <tr>
-                                            <td><input type="text" name="targets[{{ $loop->index }}][year]" value="{{ old('targets.'.$loop->index.'.year', $target->fiscal_year) }}" class="form-control" placeholder="เช่น 2569" data-year-type="be"></td>
+                                            <td><input type="text" name="targets[{{ $loop->index }}][year]" value="{{ old('targets.'.$loop->index.'.year', $target->fiscal_year) }}" class="form-control" placeholder="เช่น 2026" data-year-type="ce"></td>
                                             <td><input type="number" name="targets[{{ $loop->index }}][value]" value="{{ old('targets.'.$loop->index.'.value', $target->target_value) }}" class="form-control" placeholder="0.00" step="0.01"></td>
                                             <td><button type="button" class="btn btn-sm btn-danger" onclick="removeRow(this)"><i class="fas fa-trash"></i></button></td>
                                         </tr>
                                         @empty
                                         <tr>
-                                            <td><input type="text" name="targets[0][year]" value="{{ old('targets.0.year', date('Y')) }}" class="form-control" placeholder="เช่น 2569" data-year-type="be"></td>
+                                            <td><input type="text" name="targets[0][year]" value="{{ old('targets.0.year', date('Y')) }}" class="form-control" placeholder="เช่น 2026" data-year-type="ce"></td>
                                             <td><input type="number" name="targets[0][value]" value="{{ old('targets.0.value', 0) }}" class="form-control" placeholder="0.00" step="0.01"></td>
                                             <td><button type="button" class="btn btn-sm btn-danger" onclick="removeRow(this)"><i class="fas fa-trash"></i></button></td>
                                         </tr>
@@ -165,7 +165,7 @@ function addYearRow() {
     const rowCount = table.rows.length;
     const row = table.insertRow();
     row.innerHTML = `
-        <td><input type="text" name="targets[${rowCount}][year]" class="form-control" placeholder="เช่น 2569" data-year-type="be"></td>
+        <td><input type="text" name="targets[${rowCount}][year]" class="form-control" placeholder="เช่น 2026" data-year-type="ce"></td>
         <td><input type="number" name="targets[${rowCount}][value]" class="form-control" placeholder="0.00" step="0.01"></td>
         <td><button type="button" class="btn btn-sm btn-danger" onclick="removeRow(this)"><i class="fas fa-trash"></i></button></td>
     `;

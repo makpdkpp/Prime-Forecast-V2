@@ -11,7 +11,7 @@ class PriorityLevel extends Model
 
     protected $table = 'priority_level';
     protected $primaryKey = 'priority_id';
-    public $timestamps = false;
+    public $timestamps = true;
 
     protected $fillable = ['priority'];
 }

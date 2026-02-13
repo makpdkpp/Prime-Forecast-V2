@@ -10,7 +10,7 @@ class TransactionalTeam extends Model
     use HasFactory;
 
     protected $table = 'transactional_team';
-    protected $primaryKey = 'transacional_team_id';
+    protected $primaryKey = 'transacteam_id';
     public $timestamps = false;
 
     protected $fillable = [

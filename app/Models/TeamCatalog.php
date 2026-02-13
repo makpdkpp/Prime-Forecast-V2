@@ -11,7 +11,7 @@ class TeamCatalog extends Model
 
     protected $table = 'team_catalog';
     protected $primaryKey = 'team_id';
-    public $timestamps = false;
+    public $timestamps = true;
 
     protected $fillable = ['team'];
 }

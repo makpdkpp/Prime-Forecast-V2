@@ -11,7 +11,7 @@ class CompanyCatalog extends Model
 
     protected $table = 'company_catalog';
     protected $primaryKey = 'company_id';
-    public $timestamps = false;
+    public $timestamps = true;
 
     protected $fillable = ['company'];
 }

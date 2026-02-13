@@ -16,7 +16,7 @@ class CompanyRequest extends Model
     protected $fillable = [
         'company_name',
         'notes',
-        'requested_by_user_id',
+        'user_id',
         'request_date',
         'status',
     ];
@@ -27,6 +27,6 @@ class CompanyRequest extends Model
 
     public function user()
     {
-        return $this->belongsTo(User::class, 'requested_by_user_id', 'user_id');
+        return $this->belongsTo(User::class, 'user_id', 'user_id');
     }
 }

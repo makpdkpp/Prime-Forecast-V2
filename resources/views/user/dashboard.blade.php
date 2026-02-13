@@ -30,7 +30,7 @@
                         @if(request('year') || request('quarter'))
                             <span class="badge badge-success mr-2">
                                 @if(request('year'))
-                                    ปี {{ request('year') }}
+                                    ปี {{ request('year') + 543 }}
                                 @endif
                                 @if(request('quarter'))
                                     @if(request('year')) / @endif
@@ -52,7 +52,7 @@
                                     <option value="">ทุกปี</option>
                                     @foreach($availableYears as $y)
                                         <option value="{{ $y }}" {{ request('year') == $y ? 'selected' : '' }}>
-                                            {{ $y }}
+                                            {{ $y + 543 }}
                                         </option>
                                     @endforeach
                                 </select>
@@ -135,7 +135,13 @@
             return;
         }
 
-        const labels = rows.map(r => r.month);
+        const labels = rows.map(r => {
+            // Convert YYYY-MM to Thai Buddhist year format
+            const [year, month] = r.month.split('-');
+            const thaiYear = parseInt(year) + 543;
+            const monthNames = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+            return `${monthNames[parseInt(month) - 1]} ${thaiYear}`;
+        });
         const datasets = [
             { label: 'Present', data: rows.map(r => +r.present_value), backgroundColor: 'rgba(128, 81, 255, 1)' },
             { label: 'Budget', data: rows.map(r => +r.budgeted_value), backgroundColor: 'rgba(255, 0, 144, 1)' },
