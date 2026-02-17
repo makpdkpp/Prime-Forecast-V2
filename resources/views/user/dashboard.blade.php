@@ -127,6 +127,20 @@
     const winForecastData = @json($winForecastData);
     const sumValuePercentData = @json($sumValuePercentData);
 
+    function formatMonthYearBe(rawMonth) {
+        if (!rawMonth) return '-';
+        const parts = String(rawMonth).split('-');
+        if (parts.length < 2) return rawMonth;
+
+        const year = Number(parts[0]);
+        const month = Number(parts[1]);
+        if (!Number.isFinite(year) || !Number.isFinite(month) || month < 1 || month > 12) {
+            return rawMonth;
+        }
+
+        return String(month).padStart(2, '0') + '-' + String(year + 543);
+    }
+
     // Step Chart
     function drawStepChart(rows) {
         const chartNode = document.getElementById('stepChart');
@@ -135,13 +149,7 @@
             return;
         }
 
-        const labels = rows.map(r => {
-            // Convert YYYY-MM to Thai Buddhist year format
-            const [year, month] = r.month.split('-');
-            const thaiYear = parseInt(year) + 543;
-            const monthNames = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
-            return `${monthNames[parseInt(month) - 1]} ${thaiYear}`;
-        });
+        const labels = rows.map(r => formatMonthYearBe(r.month));
         const datasets = [
             { label: 'Present', data: rows.map(r => +r.present_value), backgroundColor: 'rgba(128, 81, 255, 1)' },
             { label: 'Budget', data: rows.map(r => +r.budgeted_value), backgroundColor: 'rgba(255, 0, 144, 1)' },

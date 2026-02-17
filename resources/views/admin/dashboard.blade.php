@@ -335,6 +335,20 @@
         'topCustomerChart'
     ];
 
+    function formatMonthYearBe(rawMonth) {
+        if (!rawMonth) return '-';
+        const parts = String(rawMonth).split('-');
+        if (parts.length < 2) return rawMonth;
+
+        const year = Number(parts[0]);
+        const month = Number(parts[1]);
+        if (!Number.isFinite(year) || !Number.isFinite(month) || month < 1 || month > 12) {
+            return rawMonth;
+        }
+
+        return String(month).padStart(2, '0') + '-' + String(year + 543);
+    }
+
     function injectChartSkeletons() {
         chartIds.forEach((id) => {
             const canvas = document.getElementById(id);
@@ -361,10 +375,11 @@
         const ctx = document.getElementById('winstatusValueChart');
         if (!ctx) return;
         
-        const labels = data.map(r => r.sale_month);
+        const rawMonths = data.map(r => r.sale_month);
+        const labels = rawMonths.map(formatMonthYearBe);
         const values = data.map(r => Number(r.cumulative_win_value));
         const totalTargetValue = targetForecastWinData.reduce((sum, row) => sum + (Number(row.target_value) || 0), 0);
-        const targetLineValues = labels.map(() => totalTargetValue);
+        const targetLineValues = rawMonths.map(() => totalTargetValue);
         
         new Chart(ctx.getContext('2d'), {
             type: 'bar',
@@ -395,8 +410,9 @@
                 onClick: function(evt, elements) {
                     if (elements.length === 0) return;
                     const idx = elements[0].index;
-                    const month = data[idx].sale_month;
-                    showChartDetail('month', month, 'ยอดขาย Win เดือน ' + month);
+                    const month = rawMonths[idx];
+                    const displayMonth = labels[idx];
+                    showChartDetail('month', month, 'ยอดขาย Win เดือน ' + displayMonth);
                 },
                 scales: {
                     y: {
@@ -691,6 +707,7 @@
         };
 
         const months = [...new Set(data.map(r => r.sale_month))].sort();
+        const displayMonths = months.map(formatMonthYearBe);
 
         const datasets = Object.keys(stepConfig).map(orderlv => {
             const cfg = stepConfig[orderlv];
@@ -710,7 +727,7 @@
         new Chart(ctx.getContext('2d'), {
             type: 'bar',
             data: {
-                labels: months,
+                labels: displayMonths,
                 datasets: datasets
             },
             options: {
@@ -719,9 +736,10 @@
                     if (elements.length === 0) return;
                     const el = elements[0];
                     const month = months[el.index];
+                    const displayMonth = displayMonths[el.index];
                     const orderlv = Object.keys(stepConfig)[el.datasetIndex];
                     const stepLabel = stepConfig[orderlv].label;
-                    showChartDetail('step', orderlv, 'สถานะ: ' + stepLabel + ' — ' + month, month);
+                    showChartDetail('step', orderlv, 'สถานะ: ' + stepLabel + ' — ' + displayMonth, month);
                 },
                 scales: {
                     x: { stacked: false },
@@ -766,6 +784,7 @@
         };
 
         const months = [...new Set(data.map(r => r.sale_month))].sort();
+        const displayMonths = months.map(formatMonthYearBe);
 
         const datasets = Object.keys(stepConfig).map(orderlv => {
             const cfg = stepConfig[orderlv];
@@ -785,7 +804,7 @@
         new Chart(ctx.getContext('2d'), {
             type: 'bar',
             data: {
-                labels: months,
+                labels: displayMonths,
                 datasets: datasets
             },
             options: {
@@ -794,9 +813,10 @@
                     if (elements.length === 0) return;
                     const el = elements[0];
                     const month = months[el.index];
+                    const displayMonth = displayMonths[el.index];
                     const orderlv = Object.keys(stepConfig)[el.datasetIndex];
                     const stepLabel = stepConfig[orderlv].label;
-                    showChartDetail('step', orderlv, 'มูลค่า: ' + stepLabel + ' — ' + month, month);
+                    showChartDetail('step', orderlv, 'มูลค่า: ' + stepLabel + ' — ' + displayMonth, month);
                 },
                 scales: {
                     x: { stacked: false },
