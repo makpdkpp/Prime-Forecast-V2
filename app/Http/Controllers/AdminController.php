@@ -90,8 +90,8 @@ class AdminController extends Controller
         // Cumulative win by month (only transactions whose latest step is WIN - level = 5)
         $cumulativeWinParams = [];
         $cumulativeWinWhere = "";
-        $this->appendYearSqlFilter($cumulativeWinWhere, $cumulativeWinParams, $year, 't');
-        $this->appendQuarterSqlFilter($cumulativeWinWhere, $cumulativeWinParams, $year, $quarter, 't');
+        $this->appendYearSqlFilter($cumulativeWinWhere, $cumulativeWinParams, $year, 'ts_win', 'date');
+        $this->appendQuarterSqlFilter($cumulativeWinWhere, $cumulativeWinParams, $year, $quarter, 'ts_win', 'date');
         $cumulativeWin = Cache::remember('dashboard:admin:cumulativeWin:' . ($year ?? 'all') . ':' . ($quarter ?? 'all'), 120, function () use ($cumulativeWinWhere, $cumulativeWinParams) {
             return DB::select("
                 SELECT 
@@ -123,10 +123,10 @@ class AdminController extends Controller
         // Sum by team (only transactions whose latest step is WIN - level = 5)
         $sumByTeamParams = [];
         $sumByTeamWhere = "";
-        $this->appendYearSqlFilter($sumByTeamWhere, $sumByTeamParams, $year, 't');
-        $this->appendQuarterSqlFilter($sumByTeamWhere, $sumByTeamParams, $year, $quarter, 't');
+        $this->appendYearSqlFilter($sumByTeamWhere, $sumByTeamParams, $year, 'ts_win', 'date');
+        $this->appendQuarterSqlFilter($sumByTeamWhere, $sumByTeamParams, $year, $quarter, 'ts_win', 'date');
         $sumByTeam = Cache::remember('dashboard:admin:sumByTeam:' . ($year ?? 'all') . ':' . ($quarter ?? 'all'), 120, function () use ($sumByTeamWhere, $sumByTeamParams) {
-            return DB::select("
+            return DB::select(" 
                 SELECT 
                     tc.team_id,
                     tc.team,
@@ -134,7 +134,7 @@ class AdminController extends Controller
                 FROM transactional t
                 JOIN team_catalog tc ON t.team_id = tc.team_id
                 JOIN (
-                    SELECT ts.transac_id
+                    SELECT ts.transac_id, ts.date
                     FROM transactional_step ts
                     JOIN step s ON s.level_id = ts.level_id
                     WHERE s.level = 5
@@ -143,7 +143,7 @@ class AdminController extends Controller
                         FROM transactional_step ts2
                         GROUP BY ts2.transac_id
                     )
-                ) wintrans ON wintrans.transac_id = t.transac_id
+                ) ts_win ON ts_win.transac_id = t.transac_id
                 WHERE 1=1 {$sumByTeamWhere}
                 GROUP BY tc.team_id, tc.team
                 ORDER BY total_value DESC
@@ -153,10 +153,10 @@ class AdminController extends Controller
         // Sum by person (only transactions whose latest step is WIN - level = 5)
         $sumByPersonParams = [];
         $sumByPersonWhere = "";
-        $this->appendYearSqlFilter($sumByPersonWhere, $sumByPersonParams, $year, 't');
-        $this->appendQuarterSqlFilter($sumByPersonWhere, $sumByPersonParams, $year, $quarter, 't');
+        $this->appendYearSqlFilter($sumByPersonWhere, $sumByPersonParams, $year, 'ts_win', 'date');
+        $this->appendQuarterSqlFilter($sumByPersonWhere, $sumByPersonParams, $year, $quarter, 'ts_win', 'date');
         $sumByPerson = Cache::remember('dashboard:admin:sumByPerson:' . ($year ?? 'all') . ':' . ($quarter ?? 'all'), 120, function () use ($sumByPersonWhere, $sumByPersonParams) {
-            return DB::select("
+            return DB::select(" 
                 SELECT 
                     u.user_id,
                     u.nname,
@@ -165,7 +165,7 @@ class AdminController extends Controller
                 FROM transactional t
                 JOIN user u ON t.user_id = u.user_id
                 JOIN (
-                    SELECT ts.transac_id
+                    SELECT ts.transac_id, ts.date
                     FROM transactional_step ts
                     JOIN step s ON s.level_id = ts.level_id
                     WHERE s.level = 5
@@ -174,7 +174,7 @@ class AdminController extends Controller
                         FROM transactional_step ts2
                         GROUP BY ts2.transac_id
                     )
-                ) wintrans ON wintrans.transac_id = t.transac_id
+                ) ts_win ON ts_win.transac_id = t.transac_id
                 WHERE 1=1 {$sumByPersonWhere}
                 GROUP BY u.user_id, u.nname, u.surename
                 ORDER BY total_value DESC
@@ -185,10 +185,10 @@ class AdminController extends Controller
         // Sale status count by month and step level
         $saleStatusParams = [];
         $saleStatusWhere = "";
-        $this->appendYearSqlFilter($saleStatusWhere, $saleStatusParams, $year, 't');
-        $this->appendQuarterSqlFilter($saleStatusWhere, $saleStatusParams, $year, $quarter, 't');
+        $this->appendYearSqlFilter($saleStatusWhere, $saleStatusParams, $year, 'ts', 'date');
+        $this->appendQuarterSqlFilter($saleStatusWhere, $saleStatusParams, $year, $quarter, 'ts', 'date');
         $saleStatus = Cache::remember('dashboard:admin:saleStatus:' . ($year ?? 'all') . ':' . ($quarter ?? 'all'), 120, function () use ($saleStatusParams, $saleStatusWhere) {
-            return DB::select("
+            return DB::select(" 
                 SELECT 
                     DATE_FORMAT(ts.date, '%Y-%m') as sale_month,
                     s.orderlv,
@@ -212,10 +212,10 @@ class AdminController extends Controller
         // Sale status value by month and step level
         $saleStatusValueParams = [];
         $saleStatusValueWhere = "";
-        $this->appendYearSqlFilter($saleStatusValueWhere, $saleStatusValueParams, $year, 't');
-        $this->appendQuarterSqlFilter($saleStatusValueWhere, $saleStatusValueParams, $year, $quarter, 't');
+        $this->appendYearSqlFilter($saleStatusValueWhere, $saleStatusValueParams, $year, 'ts', 'date');
+        $this->appendQuarterSqlFilter($saleStatusValueWhere, $saleStatusValueParams, $year, $quarter, 'ts', 'date');
         $saleStatusValue = Cache::remember('dashboard:admin:saleStatusValue:' . ($year ?? 'all') . ':' . ($quarter ?? 'all'), 120, function () use ($saleStatusValueParams, $saleStatusValueWhere) {
-            return DB::select("
+            return DB::select(" 
                 SELECT 
                     DATE_FORMAT(ts.date, '%Y-%m') as sale_month,
                     s.orderlv,
@@ -239,10 +239,10 @@ class AdminController extends Controller
         // Top 10 products (only WIN - level = 5)
         $topProductsParams = [];
         $topProductsWhere = "";
-        $this->appendYearSqlFilter($topProductsWhere, $topProductsParams, $year, 't');
-        $this->appendQuarterSqlFilter($topProductsWhere, $topProductsParams, $year, $quarter, 't');
+        $this->appendYearSqlFilter($topProductsWhere, $topProductsParams, $year, 'ts_win', 'date');
+        $this->appendQuarterSqlFilter($topProductsWhere, $topProductsParams, $year, $quarter, 'ts_win', 'date');
         $topProducts = Cache::remember('dashboard:admin:topProducts:' . ($year ?? 'all') . ':' . ($quarter ?? 'all'), 120, function () use ($topProductsWhere, $topProductsParams) {
-            return DB::select("
+            return DB::select(" 
                 SELECT 
                     pg.product_id,
                     pg.product,
@@ -250,7 +250,7 @@ class AdminController extends Controller
                 FROM transactional t
                 JOIN product_group pg ON t.Product_id = pg.product_id
                 JOIN (
-                    SELECT ts.transac_id
+                    SELECT ts.transac_id, ts.date
                     FROM transactional_step ts
                     JOIN step s ON s.level_id = ts.level_id
                     WHERE s.level = 5
@@ -259,7 +259,7 @@ class AdminController extends Controller
                         FROM transactional_step ts2
                         GROUP BY ts2.transac_id
                     )
-                ) wintrans ON wintrans.transac_id = t.transac_id
+                ) ts_win ON ts_win.transac_id = t.transac_id
                 WHERE 1=1 {$topProductsWhere}
                 GROUP BY pg.Product_id, pg.product
                 ORDER BY total_value DESC
@@ -270,10 +270,10 @@ class AdminController extends Controller
         // Top 10 customers (only WIN - level = 5)
         $topCustomersParams = [];
         $topCustomersWhere = "";
-        $this->appendYearSqlFilter($topCustomersWhere, $topCustomersParams, $year, 't');
-        $this->appendQuarterSqlFilter($topCustomersWhere, $topCustomersParams, $year, $quarter, 't');
+        $this->appendYearSqlFilter($topCustomersWhere, $topCustomersParams, $year, 'ts_win', 'date');
+        $this->appendQuarterSqlFilter($topCustomersWhere, $topCustomersParams, $year, $quarter, 'ts_win', 'date');
         $topCustomers = Cache::remember('dashboard:admin:topCustomers:' . ($year ?? 'all') . ':' . ($quarter ?? 'all'), 120, function () use ($topCustomersWhere, $topCustomersParams) {
-            return DB::select("
+            return DB::select(" 
                 SELECT 
                     cc.company_id,
                     cc.company,
@@ -281,7 +281,7 @@ class AdminController extends Controller
                 FROM transactional t
                 JOIN company_catalog cc ON t.company_id = cc.company_id
                 JOIN (
-                    SELECT ts.transac_id
+                    SELECT ts.transac_id, ts.date
                     FROM transactional_step ts
                     JOIN step s ON s.level_id = ts.level_id
                     WHERE s.level = 5
@@ -290,7 +290,7 @@ class AdminController extends Controller
                         FROM transactional_step ts2
                         GROUP BY ts2.transac_id
                     )
-                ) wintrans ON wintrans.transac_id = t.transac_id
+                ) ts_win ON ts_win.transac_id = t.transac_id
                 WHERE 1=1 {$topCustomersWhere}
                 GROUP BY cc.company_id, cc.company
                 ORDER BY total_value DESC
@@ -299,26 +299,29 @@ class AdminController extends Controller
         });
         
         // Target/Forecast/Win comparison per user
-        $tfwWhere = "";
+        $tfwForecastWhere = "";
+        $tfwWinWhere = "";
         $tfwTargetWhere = "";
-        $tfwFilterParams = [];
-        $this->appendYearSqlFilter($tfwWhere, $tfwFilterParams, $year, 't');
+        $forecastParams = [];
+        $winParams = [];
+
+        $this->appendYearSqlFilter($tfwForecastWhere, $forecastParams, $year, 'ts_latest', 'date');
+        $this->appendQuarterSqlFilter($tfwForecastWhere, $forecastParams, $year, $quarter, 'ts_latest', 'date');
+        $this->appendYearSqlFilter($tfwWinWhere, $winParams, $year, 'ts_win', 'date');
+        $this->appendQuarterSqlFilter($tfwWinWhere, $winParams, $year, $quarter, 'ts_win', 'date');
+
         if ($year !== null) {
             $tfwTargetWhere .= " AND uft.fiscal_year = ?";
         }
-        $this->appendQuarterSqlFilter($tfwWhere, $tfwFilterParams, $year, $quarter, 't');
-        // Build params for forecast subquery
-        $forecastParams = $tfwFilterParams;
-        // Build params for win subquery
-        $winParams = $forecastParams;
+
         // Build params for target subquery
         $targetParams = [];
         if ($year !== null) {
             $targetParams[] = $year;
         }
 
-        $targetForecastWin = Cache::remember('dashboard:admin:targetForecastWin:' . ($year ?? 'all') . ':' . ($quarter ?? 'all'), 120, function () use ($tfwTargetWhere, $tfwWhere, $targetParams, $forecastParams, $winParams) {
-            return DB::select("
+        $targetForecastWin = Cache::remember('dashboard:admin:targetForecastWin:' . ($year ?? 'all') . ':' . ($quarter ?? 'all'), 120, function () use ($tfwTargetWhere, $tfwForecastWhere, $tfwWinWhere, $targetParams, $forecastParams, $winParams) {
+            return DB::select(" 
                 SELECT 
                     u.user_id,
                     u.nname,
@@ -336,14 +339,23 @@ class AdminController extends Controller
                 LEFT JOIN (
                     SELECT t.user_id, SUM(t.product_value) as forecast_value
                     FROM transactional t
-                    WHERE 1=1 {$tfwWhere}
+                    JOIN (
+                        SELECT ts.transac_id, ts.date
+                        FROM transactional_step ts
+                        WHERE (ts.transacstep_id, ts.transac_id) IN (
+                            SELECT MAX(ts2.transacstep_id), ts2.transac_id
+                            FROM transactional_step ts2
+                            GROUP BY ts2.transac_id
+                        )
+                    ) ts_latest ON ts_latest.transac_id = t.transac_id
+                    WHERE 1=1 {$tfwForecastWhere}
                     GROUP BY t.user_id
                 ) fc ON fc.user_id = u.user_id
                 LEFT JOIN (
                     SELECT t.user_id, SUM(t.product_value) as win_value
                     FROM transactional t
                     JOIN (
-                        SELECT ts.transac_id
+                        SELECT ts.transac_id, ts.date
                         FROM transactional_step ts
                         JOIN step s ON s.level_id = ts.level_id
                         WHERE s.level = 5
@@ -352,8 +364,8 @@ class AdminController extends Controller
                             FROM transactional_step ts2
                             GROUP BY ts2.transac_id
                         )
-                    ) wintrans ON wintrans.transac_id = t.transac_id
-                    WHERE 1=1 {$tfwWhere}
+                    ) ts_win ON ts_win.transac_id = t.transac_id
+                    WHERE 1=1 {$tfwWinWhere}
                     GROUP BY t.user_id
                 ) wn ON wn.user_id = u.user_id
                 WHERE (tgt.target_value IS NOT NULL OR fc.forecast_value IS NOT NULL OR wn.win_value IS NOT NULL)
@@ -1106,7 +1118,7 @@ class AdminController extends Controller
         $query->whereRaw("QUARTER({$column}) = ?", [$quarter]);
     }
 
-    private function appendQuarterSqlFilter(&$where, &$params, $year, $quarter, $alias = 't')
+    private function appendQuarterSqlFilter(&$where, &$params, $year, $quarter, $alias = 't', $column = 'contact_start_date')
     {
         if (!$quarter) {
             return;
@@ -1114,13 +1126,13 @@ class AdminController extends Controller
 
         $range = $this->quarterDateRange($year, $quarter);
         if ($range) {
-            $where .= " AND {$alias}.contact_start_date >= ? AND {$alias}.contact_start_date < ?";
+            $where .= " AND {$alias}.{$column} >= ? AND {$alias}.{$column} < ?";
             $params[] = $range[0];
             $params[] = $range[1];
             return;
         }
 
-        $where .= " AND QUARTER({$alias}.contact_start_date) = ?";
+        $where .= " AND QUARTER({$alias}.{$column}) = ?";
         $params[] = $quarter;
     }
 
