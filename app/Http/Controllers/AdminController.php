@@ -13,24 +13,24 @@ class AdminController extends Controller
     public function dashboard(Request $request)
     {
         // Get filter parameters
-        $year = $request->get('year');
+        $yearFilter = $this->resolveDashboardYearFilter($request);
+        $year = $yearFilter['year'];
+        $selectedYear = $yearFilter['selected'];
         $quarter = $request->get('quarter');
         
-        // Get available years from transactional data
+        // Get available years from transactional activity date
         $availableYears = Cache::remember('dashboard:admin:availableYears', 120, function () {
             return DB::table('transactional')
-                ->select('fiscalyear')
+                ->selectRaw('YEAR(contact_start_date) as year')
+                ->whereNotNull('contact_start_date')
                 ->distinct()
-                ->orderBy('fiscalyear', 'desc')
-                ->pluck('fiscalyear');
+                ->orderBy('year', 'desc')
+                ->pluck('year');
         });
         
         // Build base query with filters
         $query = DB::table('transactional');
-        
-        if ($year) {
-            $query->where('fiscalyear', $year);
-        }
+        $this->applyYearFilterToQuery($query, $year);
         
         $this->applyQuarterFilterToQuery($query, $year, $quarter);
         
@@ -40,10 +40,7 @@ class AdminController extends Controller
         // Win value and count (latest step is WIN - level = 5)
         $winParams = [];
         $winWhere = "";
-        if ($year) {
-            $winWhere .= " AND t.fiscalyear = ?";
-            $winParams[] = $year;
-        }
+        $this->appendYearSqlFilter($winWhere, $winParams, $year, 't');
         $this->appendQuarterSqlFilter($winWhere, $winParams, $year, $quarter, 't');
         $winData = DB::select("
             SELECT 
@@ -67,10 +64,7 @@ class AdminController extends Controller
         // Lost count (latest step is LOST - level = 6)
         $lostParams = [];
         $lostWhere = "";
-        if ($year) {
-            $lostWhere .= " AND t.fiscalyear = ?";
-            $lostParams[] = $year;
-        }
+        $this->appendYearSqlFilter($lostWhere, $lostParams, $year, 't');
         $this->appendQuarterSqlFilter($lostWhere, $lostParams, $year, $quarter, 't');
         $lostCount = DB::select("
             SELECT COUNT(*) as lost_count
@@ -96,10 +90,7 @@ class AdminController extends Controller
         // Cumulative win by month (only transactions whose latest step is WIN - level = 5)
         $cumulativeWinParams = [];
         $cumulativeWinWhere = "";
-        if ($year) {
-            $cumulativeWinWhere .= " AND t.fiscalyear = ?";
-            $cumulativeWinParams[] = $year;
-        }
+        $this->appendYearSqlFilter($cumulativeWinWhere, $cumulativeWinParams, $year, 't');
         $this->appendQuarterSqlFilter($cumulativeWinWhere, $cumulativeWinParams, $year, $quarter, 't');
         $cumulativeWin = Cache::remember('dashboard:admin:cumulativeWin:' . ($year ?? 'all') . ':' . ($quarter ?? 'all'), 120, function () use ($cumulativeWinWhere, $cumulativeWinParams) {
             return DB::select("
@@ -132,10 +123,7 @@ class AdminController extends Controller
         // Sum by team (only transactions whose latest step is WIN - level = 5)
         $sumByTeamParams = [];
         $sumByTeamWhere = "";
-        if ($year) {
-            $sumByTeamWhere .= " AND t.fiscalyear = ?";
-            $sumByTeamParams[] = $year;
-        }
+        $this->appendYearSqlFilter($sumByTeamWhere, $sumByTeamParams, $year, 't');
         $this->appendQuarterSqlFilter($sumByTeamWhere, $sumByTeamParams, $year, $quarter, 't');
         $sumByTeam = Cache::remember('dashboard:admin:sumByTeam:' . ($year ?? 'all') . ':' . ($quarter ?? 'all'), 120, function () use ($sumByTeamWhere, $sumByTeamParams) {
             return DB::select("
@@ -165,10 +153,7 @@ class AdminController extends Controller
         // Sum by person (only transactions whose latest step is WIN - level = 5)
         $sumByPersonParams = [];
         $sumByPersonWhere = "";
-        if ($year) {
-            $sumByPersonWhere .= " AND t.fiscalyear = ?";
-            $sumByPersonParams[] = $year;
-        }
+        $this->appendYearSqlFilter($sumByPersonWhere, $sumByPersonParams, $year, 't');
         $this->appendQuarterSqlFilter($sumByPersonWhere, $sumByPersonParams, $year, $quarter, 't');
         $sumByPerson = Cache::remember('dashboard:admin:sumByPerson:' . ($year ?? 'all') . ':' . ($quarter ?? 'all'), 120, function () use ($sumByPersonWhere, $sumByPersonParams) {
             return DB::select("
@@ -200,10 +185,7 @@ class AdminController extends Controller
         // Sale status count by month and step level
         $saleStatusParams = [];
         $saleStatusWhere = "";
-        if ($year) {
-            $saleStatusWhere .= " AND t.fiscalyear = ?";
-            $saleStatusParams[] = $year;
-        }
+        $this->appendYearSqlFilter($saleStatusWhere, $saleStatusParams, $year, 't');
         $this->appendQuarterSqlFilter($saleStatusWhere, $saleStatusParams, $year, $quarter, 't');
         $saleStatus = Cache::remember('dashboard:admin:saleStatus:' . ($year ?? 'all') . ':' . ($quarter ?? 'all'), 120, function () use ($saleStatusParams, $saleStatusWhere) {
             return DB::select("
@@ -230,10 +212,7 @@ class AdminController extends Controller
         // Sale status value by month and step level
         $saleStatusValueParams = [];
         $saleStatusValueWhere = "";
-        if ($year) {
-            $saleStatusValueWhere .= " AND t.fiscalyear = ?";
-            $saleStatusValueParams[] = $year;
-        }
+        $this->appendYearSqlFilter($saleStatusValueWhere, $saleStatusValueParams, $year, 't');
         $this->appendQuarterSqlFilter($saleStatusValueWhere, $saleStatusValueParams, $year, $quarter, 't');
         $saleStatusValue = Cache::remember('dashboard:admin:saleStatusValue:' . ($year ?? 'all') . ':' . ($quarter ?? 'all'), 120, function () use ($saleStatusValueParams, $saleStatusValueWhere) {
             return DB::select("
@@ -260,10 +239,7 @@ class AdminController extends Controller
         // Top 10 products (only WIN - level = 5)
         $topProductsParams = [];
         $topProductsWhere = "";
-        if ($year) {
-            $topProductsWhere .= " AND t.fiscalyear = ?";
-            $topProductsParams[] = $year;
-        }
+        $this->appendYearSqlFilter($topProductsWhere, $topProductsParams, $year, 't');
         $this->appendQuarterSqlFilter($topProductsWhere, $topProductsParams, $year, $quarter, 't');
         $topProducts = Cache::remember('dashboard:admin:topProducts:' . ($year ?? 'all') . ':' . ($quarter ?? 'all'), 120, function () use ($topProductsWhere, $topProductsParams) {
             return DB::select("
@@ -294,10 +270,7 @@ class AdminController extends Controller
         // Top 10 customers (only WIN - level = 5)
         $topCustomersParams = [];
         $topCustomersWhere = "";
-        if ($year) {
-            $topCustomersWhere .= " AND t.fiscalyear = ?";
-            $topCustomersParams[] = $year;
-        }
+        $this->appendYearSqlFilter($topCustomersWhere, $topCustomersParams, $year, 't');
         $this->appendQuarterSqlFilter($topCustomersWhere, $topCustomersParams, $year, $quarter, 't');
         $topCustomers = Cache::remember('dashboard:admin:topCustomers:' . ($year ?? 'all') . ':' . ($quarter ?? 'all'), 120, function () use ($topCustomersWhere, $topCustomersParams) {
             return DB::select("
@@ -326,27 +299,23 @@ class AdminController extends Controller
         });
         
         // Target/Forecast/Win comparison per user
-        $tfwParams = [];
         $tfwWhere = "";
         $tfwTargetWhere = "";
-        if ($year) {
-            $tfwWhere .= " AND t.fiscalyear = ?";
+        $tfwFilterParams = [];
+        $this->appendYearSqlFilter($tfwWhere, $tfwFilterParams, $year, 't');
+        if ($year !== null) {
             $tfwTargetWhere .= " AND uft.fiscal_year = ?";
-            $tfwParams[] = $year;
         }
-        $tfwQuarterParams = [];
-        $this->appendQuarterSqlFilter($tfwWhere, $tfwQuarterParams, $year, $quarter, 't');
+        $this->appendQuarterSqlFilter($tfwWhere, $tfwFilterParams, $year, $quarter, 't');
         // Build params for forecast subquery
-        $forecastParams = [];
-        if ($year) {
-            $forecastParams[] = $year;
-        }
-        $forecastParams = array_merge($forecastParams, $tfwQuarterParams);
+        $forecastParams = $tfwFilterParams;
         // Build params for win subquery
         $winParams = $forecastParams;
         // Build params for target subquery
         $targetParams = [];
-        if ($year) $targetParams[] = $year;
+        if ($year !== null) {
+            $targetParams[] = $year;
+        }
 
         $targetForecastWin = Cache::remember('dashboard:admin:targetForecastWin:' . ($year ?? 'all') . ':' . ($quarter ?? 'all'), 120, function () use ($tfwTargetWhere, $tfwWhere, $targetParams, $forecastParams, $winParams) {
             return DB::select("
@@ -407,6 +376,7 @@ class AdminController extends Controller
             'targetForecastWin',
             'availableYears',
             'year',
+            'selectedYear',
             'quarter'
         ));
     }
@@ -416,15 +386,12 @@ class AdminController extends Controller
         $type = $request->get('type');
         $value = $request->get('value');
         $value2 = $request->get('value2');
-        $year = $request->get('year');
+        $year = $this->resolveDashboardYearFilter($request)['year'];
         $quarter = $request->get('quarter');
 
         $params = [];
         $where = "";
-        if ($year) {
-            $where .= " AND t.fiscalyear = ?";
-            $params[] = $year;
-        }
+        $this->appendYearSqlFilter($where, $params, $year, 't');
         $this->appendQuarterSqlFilter($where, $params, $year, $quarter, 't');
 
         // WIN subquery — used by most chart types
@@ -542,15 +509,12 @@ class AdminController extends Controller
 
     public function winProjectsByUser(Request $request, $userId)
     {
-        $year = $request->get('year');
+        $year = $this->resolveDashboardYearFilter($request)['year'];
         $quarter = $request->get('quarter');
 
         $params = [$userId];
         $where = "";
-        if ($year) {
-            $where .= " AND t.fiscalyear = ?";
-            $params[] = $year;
-        }
+        $this->appendYearSqlFilter($where, $params, $year, 't');
         $this->appendQuarterSqlFilter($where, $params, $year, $quarter, 't');
 
         $projects = DB::select("
@@ -811,6 +775,8 @@ class AdminController extends Controller
             'contact_start_date' => 'required|date',
             'date_of_closing_of_sale' => 'nullable|date',
             'sales_can_be_close' => 'nullable|date',
+            'step_date' => 'nullable|array',
+            'step_date.*' => 'nullable|date',
         ]);
 
         try {
@@ -1070,6 +1036,60 @@ class AdminController extends Controller
         return [$start, $end];
     }
 
+    private function resolveDashboardYearFilter(Request $request)
+    {
+        $currentYear = (int) date('Y');
+        $yearInput = $request->query('year');
+        $hasYearParam = $request->query->has('year');
+
+        if (!$hasYearParam) {
+            return [
+                'year' => $currentYear,
+                'selected' => (string) $currentYear,
+            ];
+        }
+
+        $normalized = strtolower(trim((string) $yearInput));
+        if ($normalized === '' || $normalized === 'all') {
+            return [
+                'year' => null,
+                'selected' => 'all',
+            ];
+        }
+
+        $year = (int) $normalized;
+        if ($year <= 0) {
+            return [
+                'year' => $currentYear,
+                'selected' => (string) $currentYear,
+            ];
+        }
+
+        return [
+            'year' => $year,
+            'selected' => (string) $year,
+        ];
+    }
+
+    private function applyYearFilterToQuery($query, $year, $column = 'contact_start_date')
+    {
+        if ($year === null) {
+            return;
+        }
+
+        $query->whereYear($column, $year);
+    }
+
+    private function appendYearSqlFilter(&$where, &$params, $year, $alias = 't', $column = 'contact_start_date')
+    {
+        if ($year === null) {
+            return;
+        }
+
+        $where .= " AND YEAR({$alias}.{$column}) = ?";
+        $params[] = $year;
+    }
+
     private function applyQuarterFilterToQuery($query, $year, $quarter, $column = 'contact_start_date')
     {
         if (!$quarter) {
@@ -1112,9 +1132,12 @@ class AdminController extends Controller
         $where = [];
         $params = [];
 
-        if ($year) {
-            $where[] = "{$alias}.fiscalyear = ?";
-            $params[] = $year;
+        $yearSql = '';
+        $yearParams = [];
+        $this->appendYearSqlFilter($yearSql, $yearParams, $year, $alias);
+        if ($yearSql !== '') {
+            $where[] = ltrim(str_replace('AND', '', $yearSql));
+            $params = array_merge($params, $yearParams);
         }
 
         $quarterSql = '';

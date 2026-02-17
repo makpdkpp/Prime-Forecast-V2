@@ -670,6 +670,8 @@ class TeamAdminController extends Controller
             'contact_start_date' => 'required|date',
             'date_of_closing_of_sale' => 'nullable|date',
             'sales_can_be_close' => 'nullable|date',
+            'step_date' => 'nullable|array',
+            'step_date.*' => 'nullable|date',
         ]);
 
         try {
