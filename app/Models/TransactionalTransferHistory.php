@@ -11,7 +11,7 @@ class TransactionalTransferHistory extends Model
 
     protected $table = 'transactional_transfer_history';
     protected $primaryKey = 'transfer_id';
-    public $timestamps = false;
+    public $timestamps = true;
 
     protected $fillable = [
         'transac_id',

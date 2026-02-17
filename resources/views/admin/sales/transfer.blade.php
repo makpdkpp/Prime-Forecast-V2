@@ -36,7 +36,7 @@
                         </tr>
                         <tr>
                             <th>ปีงบประมาณ</th>
-                            <td>{{ $transaction->fiscalyear }}</td>
+                            <td>{{ $transaction->fiscalyear + 543 }}</td>
                         </tr>
                     </table>
                 </div>

@@ -169,7 +169,7 @@
                 <div class="alert alert-danger">{{ session('error') }}</div>
             @endif
 
-            <form method="POST" action="{{ route('login.submit') }}">
+            <form method="POST" action="{{ route('login.submit') }}" id="loginForm">
                 @csrf
                 <div class="form-group">
                     <label>Email</label>
@@ -180,9 +180,12 @@
                     <input type="password" name="password" class="form-control" id="password" placeholder="Password" required>
                 </div>
                 <div class="d-flex justify-content-end mb-3">
-                    <a href="#" class="text-link">ลืมรหัสผ่าน?</a>
+                    <a href="{{ route('password.request') }}" class="text-link">ลืมรหัสผ่าน?</a>
                 </div>
-                <button type="submit" class="btn btn-login">เข้าสู่ระบบ</button>
+                <button type="submit" class="btn btn-login" id="loginBtn">
+                    <span id="loginBtnText">เข้าสู่ระบบ</span>
+                    <span id="loginBtnSpinner" class="spinner-border spinner-border-sm ml-2" role="status" style="display:none;"></span>
+                </button>
             </form>
         </div>
     </div>
@@ -197,6 +200,15 @@
         if (thaiPattern.test(this.value)) {
             this.value = this.value.replace(thaiPattern, '');
         }
+    });
+
+    document.getElementById('loginForm').addEventListener('submit', function () {
+        const btn = document.getElementById('loginBtn');
+        const text = document.getElementById('loginBtnText');
+        const spinner = document.getElementById('loginBtnSpinner');
+        btn.disabled = true;
+        text.textContent = 'กำลังเข้าสู่ระบบ...';
+        spinner.style.display = 'inline-block';
     });
 </script>
 </body>

@@ -11,7 +11,7 @@ class Step extends Model
 
     protected $table = 'step';
     protected $primaryKey = 'level_id';
-    public $timestamps = false;
+    public $timestamps = true;
 
     protected $fillable = ['level', 'orderlv'];
 }

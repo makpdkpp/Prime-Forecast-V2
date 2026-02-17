@@ -149,7 +149,7 @@
                             <label for="fiscalyear">ปีงบประมาณ <span class="text-danger">*</span></label>
                             <select name="fiscalyear" id="fiscalyear" class="form-control @error('fiscalyear') is-invalid @enderror" required>
                                 @for($year = date('Y') - 2; $year <= date('Y') + 5; $year++)
-                                    <option value="{{ $year }}" {{ old('fiscalyear', $transaction->fiscalyear) == $year ? 'selected' : '' }}>{{ $year }}</option>
+                                    <option value="{{ $year }}" {{ old('fiscalyear', $transaction->fiscalyear) == $year ? 'selected' : '' }}>{{ $year + 543 }}</option>
                                 @endfor
                             </select>
                             @error('fiscalyear')
@@ -160,7 +160,7 @@
                     <div class="col-md-4">
                         <div class="form-group">
                             <label for="contact_start_date">วันที่เริ่มติดต่อ <span class="text-danger">*</span></label>
-                            <input type="date" name="contact_start_date" id="contact_start_date" class="form-control @error('contact_start_date') is-invalid @enderror" value="{{ old('contact_start_date', $transaction->contact_start_date) }}" required>
+                            <input type="text" name="contact_start_date" id="contact_start_date" class="form-control flatpickr-thai @error('contact_start_date') is-invalid @enderror" value="{{ old('contact_start_date', $transaction->contact_start_date) }}" required readonly>
                             @error('contact_start_date')
                                 <span class="invalid-feedback">{{ $message }}</span>
                             @enderror
@@ -172,7 +172,7 @@
                     <div class="col-md-6">
                         <div class="form-group">
                             <label for="date_of_closing_of_sale">วันยื่น Bidding</label>
-                            <input type="date" name="date_of_closing_of_sale" id="date_of_closing_of_sale" class="form-control @error('date_of_closing_of_sale') is-invalid @enderror" value="{{ old('date_of_closing_of_sale', $transaction->date_of_closing_of_sale) }}">
+                            <input type="text" name="date_of_closing_of_sale" id="date_of_closing_of_sale" class="form-control flatpickr-thai @error('date_of_closing_of_sale') is-invalid @enderror" value="{{ old('date_of_closing_of_sale', $transaction->date_of_closing_of_sale) }}" readonly>
                             @error('date_of_closing_of_sale')
                                 <span class="invalid-feedback">{{ $message }}</span>
                             @enderror
@@ -181,7 +181,7 @@
                     <div class="col-md-6">
                         <div class="form-group">
                             <label for="sales_can_be_close">วันเซ็นสัญญา</label>
-                            <input type="date" name="sales_can_be_close" id="sales_can_be_close" class="form-control @error('sales_can_be_close') is-invalid @enderror" value="{{ old('sales_can_be_close', $transaction->sales_can_be_close) }}">
+                            <input type="text" name="sales_can_be_close" id="sales_can_be_close" class="form-control flatpickr-thai @error('sales_can_be_close') is-invalid @enderror" value="{{ old('sales_can_be_close', $transaction->sales_can_be_close) }}" readonly>
                             @error('sales_can_be_close')
                                 <span class="invalid-feedback">{{ $message }}</span>
                             @enderror
@@ -198,7 +198,7 @@
                                     <input type="checkbox" class="custom-control-input step-checkbox" id="step_{{ $step->level_id }}" name="step[{{ $step->level_id }}]" value="1" {{ isset($transactionSteps[$step->level_id]) ? 'checked' : '' }}>
                                     <label class="custom-control-label" for="step_{{ $step->level_id }}">{{ $step->level }}</label>
                                 </div>
-                                <input type="date" name="step_date[{{ $step->level_id }}]" class="form-control form-control-sm mt-1 step-date" id="step_date_{{ $step->level_id }}" value="{{ $transactionSteps[$step->level_id]->date ?? '' }}" {{ isset($transactionSteps[$step->level_id]) ? '' : 'disabled' }}>
+                                <input type="text" name="step_date[{{ $step->level_id }}]" class="form-control form-control-sm mt-1 step-date flatpickr-step" id="step_date_{{ $step->level_id }}" value="{{ $transactionSteps[$step->level_id]->date ?? '' }}" {{ isset($transactionSteps[$step->level_id]) ? '' : 'disabled' }} readonly>
                             </div>
                         @endforeach
                     </div>
@@ -250,6 +250,7 @@
 @stop
 
 @section('js')
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 <script>
 $(function() {
     // Format product value with commas
@@ -258,6 +259,122 @@ $(function() {
         if (!isNaN(value) && value !== '') {
             $(this).val(Number(value).toLocaleString());
         }
+    });
+
+    // Flatpickr Thai Date Picker
+    function initThaiDatePicker(selector, currentValue) {
+        const input = document.querySelector(selector);
+        if (!input) return;
+        
+        let defaultDate = null;
+        if (currentValue && currentValue !== '') {
+            const date = new Date(currentValue);
+            if (!isNaN(date.getTime())) {
+                defaultDate = date;
+            }
+        }
+        
+        flatpickr(selector, {
+            dateFormat: 'd/m/Y',
+            defaultDate: defaultDate,
+            locale: {
+                firstDayOfWeek: 1,
+                weekdays: {
+                    shorthand: ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส'],
+                    longhand: ['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์']
+                },
+                months: {
+                    shorthand: ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'],
+                    longhand: ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม']
+                }
+            },
+            onReady: function(selectedDates, dateStr, instance) {
+                if (selectedDates.length > 0) {
+                    const date = selectedDates[0];
+                    const day = String(date.getDate()).padStart(2, '0');
+                    const month = String(date.getMonth() + 1).padStart(2, '0');
+                    const year = date.getFullYear() + 543;
+                    instance.input.value = `${day}/${month}/${year}`;
+                }
+            },
+            onChange: function(selectedDates, dateStr, instance) {
+                if (selectedDates.length > 0) {
+                    const date = selectedDates[0];
+                    const day = String(date.getDate()).padStart(2, '0');
+                    const month = String(date.getMonth() + 1).padStart(2, '0');
+                    const year = date.getFullYear() + 543;
+                    instance.input.value = `${day}/${month}/${year}`;
+                }
+            }
+        });
+    }
+    
+    // Initialize Thai date pickers
+    initThaiDatePicker('#contact_start_date', '{{ $transaction->contact_start_date }}');
+    initThaiDatePicker('#date_of_closing_of_sale', '{{ $transaction->date_of_closing_of_sale }}');
+    initThaiDatePicker('#sales_can_be_close', '{{ $transaction->sales_can_be_close }}');
+    
+    // Convert Thai date back to YYYY-MM-DD before form submission
+    $('form').on('submit', function() {
+        $('.flatpickr-thai, .flatpickr-step').each(function() {
+            const thaiDate = $(this).val();
+            if (thaiDate && thaiDate.includes('/')) {
+                const parts = thaiDate.split('/');
+                if (parts.length === 3) {
+                    const day = parts[0];
+                    const month = parts[1];
+                    const buddhistYear = parseInt(parts[2]);
+                    const christianYear = buddhistYear - 543;
+                    $(this).val(`${christianYear}-${month}-${day}`);
+                }
+            }
+        });
+    });
+
+    // Initialize Flatpickr for step dates
+    document.querySelectorAll('.flatpickr-step').forEach(function(input) {
+        const currentValue = input.value;
+        let defaultDate = null;
+        if (currentValue && currentValue !== '') {
+            const date = new Date(currentValue);
+            if (!isNaN(date.getTime())) {
+                defaultDate = date;
+            }
+        }
+        
+        flatpickr(input, {
+            dateFormat: 'd/m/Y',
+            defaultDate: defaultDate,
+            locale: {
+                firstDayOfWeek: 1,
+                weekdays: {
+                    shorthand: ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส'],
+                    longhand: ['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์']
+                },
+                months: {
+                    shorthand: ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'],
+                    longhand: ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม']
+                }
+            },
+            onReady: function(selectedDates, dateStr, instance) {
+                if (selectedDates.length > 0) {
+                    const date = selectedDates[0];
+                    const day = String(date.getDate()).padStart(2, '0');
+                    const month = String(date.getMonth() + 1).padStart(2, '0');
+                    const year = date.getFullYear() + 543;
+                    instance.input.value = `${day}/${month}/${year}`;
+                }
+            },
+            onChange: function(selectedDates, dateStr, instance) {
+                if (selectedDates.length > 0) {
+                    const date = selectedDates[0];
+                    const day = String(date.getDate()).padStart(2, '0');
+                    const month = String(date.getMonth() + 1).padStart(2, '0');
+                    const year = date.getFullYear() + 543;
+                    instance.input.value = `${day}/${month}/${year}`;
+                }
+            }
+        });
     });
 
     // Enable/disable step date based on checkbox
@@ -275,6 +392,7 @@ $(function() {
 @stop
 
 @section('css')
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
 <style>
     .content-wrapper { background-color: #b3d6e4; }
 </style>

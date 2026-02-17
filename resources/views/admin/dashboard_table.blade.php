@@ -35,7 +35,7 @@
                         @if(request('year') || request('quarter'))
                             <span class="badge badge-info mr-2">
                                 @if(request('year'))
-                                    ปี {{ request('year') }}
+                                    ปี {{ request('year') + 543 }}
                                 @endif
                                 @if(request('quarter'))
                                     @if(request('year')) / @endif
@@ -49,7 +49,7 @@
                     </div>
                 </div>
                 <div class="card-body py-2" style="display: none;">
-                    <form method="GET" action="{{ route('admin.dashboard.table') }}">
+                    <form method="GET" action="{{ route('admin.dashboard.table') }}" id="tableFilterForm">
                         <div class="row align-items-end">
                             <div class="col-md-2">
                                 <label class="mb-1"><small>ปีงบประมาณ (พ.ศ.):</small></label>
@@ -57,7 +57,7 @@
                                     <option value="">ทุกปี</option>
                                     @foreach($availableYears as $y)
                                         <option value="{{ $y }}" {{ request('year') == $y ? 'selected' : '' }}>
-                                            {{ $y }}
+                                            {{ $y + 543 }}
                                         </option>
                                     @endforeach
                                 </select>
@@ -72,9 +72,21 @@
                                     <option value="4" {{ request('quarter') == '4' ? 'selected' : '' }}>Q4</option>
                                 </select>
                             </div>
+                            <div class="col-md-3">
+                                <label class="mb-1"><small>พนักงาน:</small></label>
+                                <select name="user_id" class="form-control form-control-sm">
+                                    <option value="">ทุกคน</option>
+                                    @foreach($availableUsers as $u)
+                                        <option value="{{ $u->user_id }}" {{ (string)request('user_id') === (string)$u->user_id ? 'selected' : '' }}>
+                                            {{ trim(($u->nname ?? '') . ' ' . ($u->surename ?? '')) }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
                             <div class="col-md-2">
-                                <button type="submit" class="btn btn-primary btn-sm btn-block">
-                                    <i class="fas fa-search"></i> กรอง
+                                <button type="submit" class="btn btn-primary btn-sm btn-block" id="tableFilterBtn">
+                                    <span id="tableFilterBtnText"><i class="fas fa-search"></i> กรอง</span>
+                                    <span id="tableFilterBtnSpinner" class="spinner-border spinner-border-sm ml-1" style="display:none;"></span>
                                 </button>
                             </div>
                             <div class="col-md-2">
@@ -86,6 +98,7 @@
                     </form>
                 </div>
             </div>
+
         </div>
     </div>
 
@@ -118,43 +131,107 @@
                         </tr>
                     </thead>
                     <tbody>
-                        @foreach($transactions as $t)
-                        <tr>
-                            <td>{{ $t->Product_detail }}</td>
-                            <td>{{ $t->company->company ?? '-' }}</td>
-                            <td>{{ number_format($t->product_value) }}</td>
-                            <td>{{ $t->latestStep->step->level ?? '-' }}</td>
-                            <td>{{ $t->priority->priority ?? '-' }}</td>
-                            <td>{{ $t->fiscalyear }}</td>
-                            <td>{{ $t->contact_start_date }}</td>
-                            <td>{{ $t->date_of_closing_of_sale }}</td>
-                            <td>{{ $t->sales_can_be_close }}</td>
-                            <td>{{ $t->productGroup->product ?? '-' }}</td>
-                            <td>{{ $t->user->nname ?? '' }} {{ $t->user->surename ?? '' }}</td>
-                            <td>{{ $t->team->team ?? '-' }}</td>
-                            <td>{{ $t->contact_person ?? '-' }}</td>
-                            <td>{{ $t->contact_phone ?? '-' }}</td>
-                            <td>{{ $t->contact_email ?? '-' }}</td>
-                            <td>{{ $t->remark }}</td>
-                            <td class="text-center">
-                                <a href="{{ route('admin.sales.edit', $t->transac_id) }}" class="btn btn-sm btn-info" title="แก้ไข">
-                                    <i class="fas fa-pencil-alt"></i>
-                                </a>
-                                <a href="{{ route('admin.sales.transfer', $t->transac_id) }}" class="btn btn-sm btn-warning" title="โอนข้อมูล">
-                                    <i class="fas fa-exchange-alt"></i>
-                                </a>
-                                <form action="{{ route('admin.sales.delete', $t->transac_id) }}" method="POST" style="display: inline;" onsubmit="return confirm('คุณแน่ใจหรือไม่ว่าต้องการลบข้อมูลนี้?');">
-                                    @csrf
-                                    @method('DELETE')
-                                    <button type="submit" class="btn btn-sm btn-danger" title="ลบ">
-                                        <i class="fas fa-trash"></i>
-                                    </button>
-                                </form>
-                            </td>
-                        </tr>
-                        @endforeach
+                        <!-- Data will be loaded via DataTables AJAX -->
                     </tbody>
                 </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- View Detail Modal -->
+    <div class="modal fade" id="viewDetailModal" tabindex="-1" role="dialog" aria-labelledby="viewDetailModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg" role="document">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title" id="viewDetailModalLabel"><i class="fas fa-info-circle"></i> รายละเอียดข้อมูลการขาย</h5>
+                    <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-12 mb-3">
+                            <h5 class="text-primary" id="modal-project"></h5>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="card card-outline card-info mb-3">
+                                <div class="card-header py-2"><strong><i class="fas fa-building"></i> ข้อมูลโครงการ</strong></div>
+                                <div class="card-body py-2">
+                                    <p class="mb-1"><strong>หน่วยงาน/บริษัท:</strong> <span id="modal-company"></span></p>
+                                    <p class="mb-1"><strong>มูลค่า:</strong> <span id="modal-value" class="text-success font-weight-bold"></span> บาท</p>
+                                    <p class="mb-1"><strong>กลุ่มสินค้า:</strong> <span id="modal-product"></span></p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card card-outline card-warning mb-3">
+                                <div class="card-header py-2"><strong><i class="fas fa-coins"></i> งบประมาณ</strong></div>
+                                <div class="card-body py-2">
+                                    <p class="mb-1"><strong>แหล่งงบประมาณ:</strong> <span id="modal-source"></span></p>
+                                    <p class="mb-1"><strong>ปีงบประมาณ:</strong> <span id="modal-year"></span></p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="card card-outline card-success mb-3">
+                                <div class="card-header py-2"><strong><i class="fas fa-calendar-alt"></i> วันที่สำคัญ</strong></div>
+                                <div class="card-body py-2">
+                                    <p class="mb-1"><strong>วันที่เริ่ม:</strong> <span id="modal-start"></span></p>
+                                    <p class="mb-1"><strong>วันยื่น Bidding:</strong> <span id="modal-bidding"></span></p>
+                                    <p class="mb-1"><strong>วันเซ็นสัญญา:</strong> <span id="modal-contract"></span></p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card card-outline card-danger mb-3">
+                                <div class="card-header py-2"><strong><i class="fas fa-chart-line"></i> สถานะ</strong></div>
+                                <div class="card-body py-2">
+                                    <p class="mb-1"><strong>สถานะปัจจุบัน:</strong> <span id="modal-status" class="badge badge-info"></span></p>
+                                    <p class="mb-1"><strong>โอกาสชนะ:</strong> <span id="modal-priority"></span></p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="card card-outline card-secondary mb-3">
+                                <div class="card-header py-2"><strong><i class="fas fa-users"></i> ผู้รับผิดชอบ</strong></div>
+                                <div class="card-body py-2">
+                                    <p class="mb-1"><strong>ชื่อผู้ใช้:</strong> <span id="modal-user"></span></p>
+                                    <p class="mb-1"><strong>ทีม:</strong> <span id="modal-team"></span></p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card card-outline card-primary mb-3">
+                                <div class="card-header py-2"><strong><i class="fas fa-user-tie"></i> ข้อมูลลูกค้า</strong></div>
+                                <div class="card-body py-2">
+                                    <p class="mb-1"><strong>ชื่อผู้ติดต่อ:</strong> <span id="modal-contact-person"></span></p>
+                                    <p class="mb-1"><strong>เบอร์โทร:</strong> <span id="modal-contact-phone"></span></p>
+                                    <p class="mb-1"><strong>อีเมล:</strong> <span id="modal-contact-email"></span></p>
+                                    <p class="mb-1"><strong>อื่นๆ:</strong> <span id="modal-contact-note"></span></p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-12">
+                            <div class="card card-outline card-dark">
+                                <div class="card-header py-2"><strong><i class="fas fa-sticky-note"></i> หมายเหตุ</strong></div>
+                                <div class="card-body py-2">
+                                    <p class="mb-0" id="modal-remark"></p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">ปิด</button>
+                </div>
             </div>
         </div>
     </div>
@@ -173,12 +250,40 @@
 
 <script>
 $(function () {
-    $("#salesTable").DataTable({
+    const csrfToken = '{{ csrf_token() }}';
+
+    const table = $("#salesTable").DataTable({
+        "processing": true,
+        "serverSide": true,
         "responsive": false,
         "lengthChange": true,
         "autoWidth": false,
         "language": { "url": "//cdn.datatables.net/plug-ins/1.13.7/i18n/th.json" },
         "dom": 'lBfrtip',
+        "ajax": {
+            "url": "{{ route('admin.dashboard.table.data') }}",
+            "data": function(d) {
+                d.year = $('select[name="year"]').val() || '{{ $year }}';
+                d.quarter = $('select[name="quarter"]').val() || '{{ $quarter }}';
+                d.user_id = $('select[name="user_id"]').val() || '{{ $userId }}';
+            }
+        },
+        "columns": [
+            { data: 'project' },
+            { data: 'company' },
+            { data: 'value', render: function(v){ return Number(v || 0).toLocaleString('th-TH'); } },
+            { data: 'status' },
+            { data: 'priority' },
+            { data: 'year' },
+            { data: 'start', render: function(v){ return formatThaiDate(v); } },
+            { data: 'bidding', render: function(v){ return formatThaiDate(v); } },
+            { data: 'contract', render: function(v){ return formatThaiDate(v); } },
+            { data: 'product' },
+            { data: 'user' },
+            { data: 'team' },
+            { data: 'remark' },
+            { data: 'action', orderable: false, searchable: false, className: 'text-center' }
+        ],
         "buttons": [
             {
                 extend: 'excelHtml5',
@@ -196,7 +301,89 @@ $(function () {
                 className: 'btn btn-info'
             }
         ],
-        "order": [[0, 'desc']]
+        "order": [[6, 'desc']]
+    });
+
+    // Row click to show detail modal
+    $('#salesTable tbody').on('click', 'tr', function(e) {
+        // Don't trigger if clicking on action buttons
+        if ($(e.target).closest('td:last-child').length) return;
+
+        const row = table.row(this).data();
+        if (!row) return;
+
+        $('#modal-project').text(row.project || '-');
+        $('#modal-company').text(row.company || '-');
+        $('#modal-value').text(Number(row.value || 0).toLocaleString('th-TH'));
+        $('#modal-status').text(row.status || '-');
+        $('#modal-priority').text(row.priority || '-');
+        $('#modal-year').text(row.year || '-');
+        $('#modal-start').text(formatThaiDate(row.start));
+        $('#modal-bidding').text(formatThaiDate(row.bidding));
+        $('#modal-contract').text(formatThaiDate(row.contract));
+        $('#modal-product').text(row.product || '-');
+        $('#modal-user').text(row.user || '-');
+        $('#modal-team').text(row.team || '-');
+        $('#modal-source').text(row.source || '-');
+        $('#modal-contact-person').text(row.contact_person || '-');
+        $('#modal-contact-phone').text(row.contact_phone || '-');
+        $('#modal-contact-email').text(row.contact_email || '-');
+        $('#modal-contact-note').text(row.contact_note || '-');
+        $('#modal-remark').text(row.remark || '-');
+        
+        $('#viewDetailModal').modal('show');
+    });
+
+    $('#salesTable tbody').on('click', '.js-delete-sale', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+
+        const deleteUrl = $(this).data('delete-url');
+        if (!deleteUrl) return;
+
+        if (!confirm('คุณแน่ใจหรือไม่ว่าต้องการลบข้อมูลนี้?')) {
+            return;
+        }
+
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = deleteUrl;
+        form.style.display = 'none';
+
+        const csrfInput = document.createElement('input');
+        csrfInput.type = 'hidden';
+        csrfInput.name = '_token';
+        csrfInput.value = csrfToken;
+
+        const methodInput = document.createElement('input');
+        methodInput.type = 'hidden';
+        methodInput.name = '_method';
+        methodInput.value = 'DELETE';
+
+        form.appendChild(csrfInput);
+        form.appendChild(methodInput);
+        document.body.appendChild(form);
+        form.submit();
+    });
+
+    // Helper function to format date to Thai format
+    function formatThaiDate(dateStr) {
+        if (!dateStr || dateStr === '-') return '-';
+        try {
+            const date = new Date(dateStr);
+            const day = String(date.getDate()).padStart(2, '0');
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const year = date.getFullYear() + 543;
+            return `${day}/${month}/${year}`;
+        } catch (e) {
+            return dateStr;
+        }
+    }
+
+    $('#tableFilterForm').on('submit', function () {
+        $('#tableFilterBtn').prop('disabled', true);
+        $('#tableFilterBtnText').text('กำลังกรอง...');
+        $('#tableFilterBtnSpinner').show();
     });
 });
 </script>
