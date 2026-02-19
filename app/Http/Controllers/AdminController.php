@@ -404,19 +404,29 @@ class AdminController extends Controller
         $params = [];
         $where = "";
         
-        // For step-based charts, use ts.date for year/quarter filter to match saleStatus/saleStatusValue logic
+        // Use the correct date column for year/quarter filter based on chart type
         if ($type === 'step') {
+            // Step-based charts: filter by ts.date (transactional_step date)
             $this->appendYearSqlFilter($where, $params, $year, 'ts', 'date');
             $this->appendQuarterSqlFilter($where, $params, $year, $quarter, 'ts', 'date');
+        } else if ($type === 'month') {
+            // Month-based WIN charts: skip year/quarter filter here
+            // because month value already includes year (e.g. '2026-03')
+            // and we filter by ts_w.date in the extraWhere
+        } else if (in_array($type, ['team', 'product', 'company', 'user_win'])) {
+            // WIN-based charts: filter by wintrans.win_date (WIN step date)
+            $this->appendYearSqlFilter($where, $params, $year, 'wintrans', 'win_date');
+            $this->appendQuarterSqlFilter($where, $params, $year, $quarter, 'wintrans', 'win_date');
         } else {
+            // Forecast-based charts (user_forecast): filter by t.contact_start_date
             $this->appendYearSqlFilter($where, $params, $year, 't');
             $this->appendQuarterSqlFilter($where, $params, $year, $quarter, 't');
         }
 
-        // WIN subquery — used by most chart types
+        // WIN subquery — used by most chart types (includes win_date for filtering)
         $winJoin = "
             JOIN (
-                SELECT ts.transac_id
+                SELECT ts.transac_id, ts.date as win_date
                 FROM transactional_step ts
                 JOIN step s ON s.level_id = ts.level_id
                 WHERE s.level = 5
@@ -447,7 +457,12 @@ class AdminController extends Controller
             case 'month': // ยอดขายรวม — win by month
                 $extraJoin = $winJoin . "
                     JOIN transactional_step ts_w ON ts_w.transac_id = t.transac_id
-                    JOIN step s_w ON s_w.level_id = ts_w.level_id AND s_w.level = 5";
+                    JOIN step s_w ON s_w.level_id = ts_w.level_id AND s_w.level = 5
+                    AND (ts_w.transacstep_id, ts_w.transac_id) IN (
+                        SELECT MAX(ts2.transacstep_id), ts2.transac_id
+                        FROM transactional_step ts2
+                        GROUP BY ts2.transac_id
+                    )";
                 $extraWhere = " AND DATE_FORMAT(ts_w.date, '%Y-%m') = ?";
                 $extraParams[] = $value;
                 break;
@@ -533,8 +548,9 @@ class AdminController extends Controller
 
         $params = [$userId];
         $where = "";
-        $this->appendYearSqlFilter($where, $params, $year, 't');
-        $this->appendQuarterSqlFilter($where, $params, $year, $quarter, 't');
+        // Use ts_win.date for year/quarter filter to match dashboard sumByPerson query
+        $this->appendYearSqlFilter($where, $params, $year, 'ts_win', 'date');
+        $this->appendQuarterSqlFilter($where, $params, $year, $quarter, 'ts_win', 'date');
 
         $projects = DB::select("
             SELECT 
