@@ -331,7 +331,7 @@ class TeamAdminController extends Controller
             $targetParams[] = $year;
         }
 
-        $targetForecastWin = Cache::remember('dashboard:teamadmin:targetForecastWin:' . $user->user_id . ':' . $teamKey . ':' . ($year ?? 'all') . ':' . ($quarter ?? 'all'), 120, function () use ($tfwTargetWhere, $tfwForecastWhere, $tfwWinWhere, $targetParams, $forecastParams, $winParams) {
+        $targetForecastWin = Cache::remember('dashboard:teamadmin:targetForecastWin:' . $user->user_id . ':' . $teamKey . ':' . ($year ?? 'all') . ':' . ($quarter ?? 'all'), 120, function () use ($tfwTargetWhere, $tfwForecastWhere, $tfwWinWhere, $targetParams, $forecastParams, $winParams, $userTeams, $teamPlaceholders) {
             return DB::select("
                 SELECT 
                     u.user_id,
@@ -341,6 +341,11 @@ class TeamAdminController extends Controller
                     COALESCE(fc.forecast_value, 0) as forecast_value,
                     COALESCE(wn.win_value, 0) as win_value
                 FROM user u
+                INNER JOIN (
+                    SELECT DISTINCT tt.user_id
+                    FROM transactional_team tt
+                    WHERE tt.team_id IN ({$teamPlaceholders})
+                ) team_users ON team_users.user_id = u.user_id
                 LEFT JOIN (
                     SELECT uft.user_id, SUM(uft.target_value) as target_value
                     FROM user_forecast_target uft
@@ -381,7 +386,7 @@ class TeamAdminController extends Controller
                 ) wn ON wn.user_id = u.user_id
                 WHERE (tgt.target_value IS NOT NULL OR fc.forecast_value IS NOT NULL OR wn.win_value IS NOT NULL)
                 ORDER BY COALESCE(fc.forecast_value, 0) DESC
-            ", array_merge($targetParams, $forecastParams, $winParams));
+            ", array_merge($userTeams, $targetParams, $forecastParams, $winParams));
         });
         
         return view('teamadmin.dashboard', compact(
