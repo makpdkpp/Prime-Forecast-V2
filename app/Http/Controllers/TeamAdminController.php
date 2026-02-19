@@ -309,6 +309,80 @@ class TeamAdminController extends Controller
                 LIMIT 10
             ", $topCustomersParams);
         });
+
+        // Target/Forecast/Win comparison per user (team filtered)
+        $tfwForecastWhere = " AND t.team_id IN ({$teamPlaceholders})";
+        $tfwWinWhere = " AND t.team_id IN ({$teamPlaceholders})";
+        $tfwTargetWhere = "";
+        $forecastParams = $userTeams;
+        $winParams = $userTeams;
+
+        $this->appendYearSqlFilter($tfwForecastWhere, $forecastParams, $year, 'ts_latest', 'date');
+        $this->appendQuarterSqlFilter($tfwForecastWhere, $forecastParams, $year, $quarter, 'ts_latest', 'date');
+        $this->appendYearSqlFilter($tfwWinWhere, $winParams, $year, 'ts_win', 'date');
+        $this->appendQuarterSqlFilter($tfwWinWhere, $winParams, $year, $quarter, 'ts_win', 'date');
+
+        if ($year !== null) {
+            $tfwTargetWhere .= " AND uft.fiscal_year = ?";
+        }
+
+        $targetParams = [];
+        if ($year !== null) {
+            $targetParams[] = $year;
+        }
+
+        $targetForecastWin = Cache::remember('dashboard:teamadmin:targetForecastWin:' . $user->user_id . ':' . $teamKey . ':' . ($year ?? 'all') . ':' . ($quarter ?? 'all'), 120, function () use ($tfwTargetWhere, $tfwForecastWhere, $tfwWinWhere, $targetParams, $forecastParams, $winParams) {
+            return DB::select("
+                SELECT 
+                    u.user_id,
+                    u.nname,
+                    u.surename,
+                    COALESCE(tgt.target_value, 0) as target_value,
+                    COALESCE(fc.forecast_value, 0) as forecast_value,
+                    COALESCE(wn.win_value, 0) as win_value
+                FROM user u
+                LEFT JOIN (
+                    SELECT uft.user_id, SUM(uft.target_value) as target_value
+                    FROM user_forecast_target uft
+                    WHERE 1=1 {$tfwTargetWhere}
+                    GROUP BY uft.user_id
+                ) tgt ON tgt.user_id = u.user_id
+                LEFT JOIN (
+                    SELECT t.user_id, SUM(t.product_value) as forecast_value
+                    FROM transactional t
+                    JOIN (
+                        SELECT ts.transac_id, ts.date
+                        FROM transactional_step ts
+                        WHERE (ts.transacstep_id, ts.transac_id) IN (
+                            SELECT MAX(ts2.transacstep_id), ts2.transac_id
+                            FROM transactional_step ts2
+                            GROUP BY ts2.transac_id
+                        )
+                    ) ts_latest ON ts_latest.transac_id = t.transac_id
+                    WHERE 1=1 {$tfwForecastWhere}
+                    GROUP BY t.user_id
+                ) fc ON fc.user_id = u.user_id
+                LEFT JOIN (
+                    SELECT t.user_id, SUM(t.product_value) as win_value
+                    FROM transactional t
+                    JOIN (
+                        SELECT ts.transac_id, ts.date
+                        FROM transactional_step ts
+                        JOIN step s ON s.level_id = ts.level_id
+                        WHERE s.level = 5
+                        AND (ts.transacstep_id, ts.transac_id) IN (
+                            SELECT MAX(ts2.transacstep_id), ts2.transac_id
+                            FROM transactional_step ts2
+                            GROUP BY ts2.transac_id
+                        )
+                    ) ts_win ON ts_win.transac_id = t.transac_id
+                    WHERE 1=1 {$tfwWinWhere}
+                    GROUP BY t.user_id
+                ) wn ON wn.user_id = u.user_id
+                WHERE (tgt.target_value IS NOT NULL OR fc.forecast_value IS NOT NULL OR wn.win_value IS NOT NULL)
+                ORDER BY COALESCE(fc.forecast_value, 0) DESC
+            ", array_merge($targetParams, $forecastParams, $winParams));
+        });
         
         return view('teamadmin.dashboard', compact(
             'estimateValue',
@@ -322,8 +396,10 @@ class TeamAdminController extends Controller
             'saleStatusValue',
             'topProducts',
             'topCustomers',
+            'targetForecastWin',
             'availableYears',
             'year',
+            'selectedYear',
             'quarter'
         ));
     }
