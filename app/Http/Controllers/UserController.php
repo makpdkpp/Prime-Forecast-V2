@@ -24,9 +24,9 @@ class UserController extends Controller
     public function dashboard(Request $request)
     {
         $userId = auth()->id();
-        
-        // Get filter parameters
-        $year = $request->get('year');
+        $resolvedYear = $this->resolveDashboardYearFilter($request);
+        $year = $resolvedYear['year'];
+        $selectedYear = $resolvedYear['selected'];
         $quarter = $request->get('quarter');
         
         // Get available years from transactional data
@@ -35,14 +35,27 @@ class UserController extends Controller
             ->select('fiscalyear')
             ->distinct()
             ->orderBy('fiscalyear', 'desc')
-            ->pluck('fiscalyear');
+            ->pluck('fiscalyear')
+            ->toArray();
+        $currentYear = (int) date('Y');
+        if (!in_array($currentYear, $availableYears, true)) {
+            $availableYears[] = $currentYear;
+            rsort($availableYears);
+        }
         
         // Load data for charts from the database
         $saleStepData = $this->getSaleStepData($userId, $year, $quarter);
         $winForecastData = $this->getWinForecastData($userId, $year, $quarter);
         $sumValuePercentData = $this->getSumValuePercentData($userId, $year, $quarter);
         
-        return view('user.dashboard', compact('saleStepData', 'winForecastData', 'sumValuePercentData', 'availableYears', 'year', 'quarter'));
+        return view('user.dashboard', compact(
+            'saleStepData',
+            'winForecastData',
+            'sumValuePercentData',
+            'availableYears',
+            'selectedYear',
+            'quarter'
+        ));
     }
 
     public function dashboardTable(Request $request)
@@ -50,7 +63,9 @@ class UserController extends Controller
         $userId = auth()->id();
         
         // Get filter parameters
-        $year = $request->get('year');
+        $resolvedYear = $this->resolveDashboardYearFilter($request);
+        $year = $resolvedYear['year'];
+        $selectedYear = $resolvedYear['selected'];
         $quarter = $request->get('quarter');
         
         // Get available years
@@ -59,7 +74,13 @@ class UserController extends Controller
             ->select('fiscalyear')
             ->distinct()
             ->orderBy('fiscalyear', 'desc')
-            ->pluck('fiscalyear');
+            ->pluck('fiscalyear')
+            ->toArray();
+        $currentYear = (int) date('Y');
+        if (!in_array($currentYear, $availableYears, true)) {
+            $availableYears[] = $currentYear;
+            rsort($availableYears);
+        }
         
         // Build query with filters and eager load all relationships
         $query = Transactional::with([
@@ -84,7 +105,181 @@ class UserController extends Controller
             ->orderBy('transac_id', 'desc')
             ->get();
         
-        return view('user.dashboard_table', compact('transactions', 'availableYears', 'year', 'quarter'));
+        return view('user.dashboard_table', compact('transactions', 'availableYears', 'selectedYear', 'quarter'));
+    }
+
+    public function chartDetail(Request $request)
+    {
+        $userId = auth()->id();
+        $type = $request->get('type');
+        $value = $request->get('value');
+        $value2 = $request->get('value2');
+        $year = $this->resolveDashboardYearFilter($request)['year'];
+        $quarter = $request->get('quarter');
+
+        $params = [$userId];
+        $where = " AND t.user_id = ?";
+
+        // Filter by year/quarter using proper date column
+        if ($type === 'step') {
+            $this->appendYearSqlFilter($where, $params, $year, 'ts', 'date');
+            $this->appendQuarterSqlFilter($where, $params, $year, $quarter, 'ts', 'date');
+        } elseif ($type === 'month') {
+            // month value already includes year, filter in extraWhere
+        } elseif ($type === 'product') {
+            // Use fiscalyear to match getSumValuePercentData
+            if ($year !== null) {
+                $where .= " AND t.fiscalyear = ?";
+                $params[] = $year;
+            }
+            if ($quarter) {
+                $where .= " AND QUARTER(t.contact_start_date) = ?";
+                $params[] = $quarter;
+            }
+        } elseif ($type === 'user_win') {
+            $this->appendYearSqlFilter($where, $params, $year, 'wintrans', 'win_date');
+            $this->appendQuarterSqlFilter($where, $params, $year, $quarter, 'wintrans', 'win_date');
+        } else {
+            $this->appendYearSqlFilter($where, $params, $year, 't');
+            $this->appendQuarterSqlFilter($where, $params, $year, $quarter, 't');
+        }
+
+        $winJoin = "
+            JOIN (
+                SELECT ts.transac_id, ts.date as win_date
+                FROM transactional_step ts
+                JOIN step s ON s.level_id = ts.level_id
+                WHERE s.orderlv = 5
+                AND (ts.transacstep_id, ts.transac_id) IN (
+                    SELECT MAX(ts2.transacstep_id), ts2.transac_id
+                    FROM transactional_step ts2
+                    GROUP BY ts2.transac_id
+                )
+            ) wintrans ON wintrans.transac_id = t.transac_id
+        ";
+
+        $stepJoin = "
+            JOIN transactional_step ts ON t.transac_id = ts.transac_id
+                AND (ts.transacstep_id, ts.transac_id) IN (
+                    SELECT MAX(ts2.transacstep_id), ts2.transac_id
+                    FROM transactional_step ts2
+                    GROUP BY ts2.transac_id
+                )
+            JOIN step s ON s.level_id = ts.level_id
+        ";
+
+        $extraJoin = "";
+        $extraWhere = "";
+        $extraParams = [];
+
+        switch ($type) {
+            case 'month':
+                $extraJoin = $winJoin;
+                $extraWhere = " AND DATE_FORMAT(wintrans.win_date, '%Y-%m') = ?";
+                $extraParams[] = $value;
+                break;
+            case 'step':
+                $extraJoin = $stepJoin;
+                $extraWhere = " AND s.orderlv = ?";
+                $extraParams[] = $value;
+                if ($value2) {
+                    $extraWhere .= " AND DATE_FORMAT(ts.date, '%Y-%m') = ?";
+                    $extraParams[] = $value2;
+                }
+                break;
+            case 'product':
+                // Show all forecast for this product (not just WIN)
+                $extraWhere = " AND t.Product_id = ?";
+                $extraParams[] = $value;
+                break;
+            case 'user_forecast':
+                // list all transactions for the user
+                break;
+            case 'user_win':
+                $extraJoin = $winJoin;
+                break;
+            default:
+                return response()->json([]);
+        }
+
+        $allParams = array_merge($params, $extraParams);
+
+        // Only select wintrans.win_date when wintrans join is present
+        $hasWinJoin = in_array($type, ['month', 'user_win']);
+        $winDateSelect = $hasWinJoin ? "wintrans.win_date," : "NULL as win_date,";
+
+        $projects = DB::select("
+            SELECT
+                t.transac_id,
+                t.Product_detail,
+                t.product_value,
+                c.company,
+                pg.product as product_group,
+                tc.team,
+                COALESCE(latest_s.level, '-') as step_name,
+                {$winDateSelect}
+                t.contact_start_date
+            FROM transactional t
+            {$extraJoin}
+            LEFT JOIN company_catalog c ON t.company_id = c.company_id
+            LEFT JOIN product_group pg ON t.Product_id = pg.product_id
+            LEFT JOIN team_catalog tc ON t.team_id = tc.team_id
+            LEFT JOIN (
+                SELECT ts3.transac_id, s3.level
+                FROM transactional_step ts3
+                JOIN step s3 ON s3.level_id = ts3.level_id
+                WHERE (ts3.transacstep_id, ts3.transac_id) IN (
+                    SELECT MAX(ts4.transacstep_id), ts4.transac_id
+                    FROM transactional_step ts4
+                    GROUP BY ts4.transac_id
+                )
+            ) latest_s ON latest_s.transac_id = t.transac_id
+            WHERE 1=1 {$where} {$extraWhere}
+            ORDER BY t.product_value DESC
+            LIMIT 100
+        ", $allParams);
+
+        return response()->json($projects);
+    }
+
+    public function winProjects(Request $request)
+    {
+        $userId = auth()->id();
+        $year = $this->resolveDashboardYearFilter($request)['year'];
+        $quarter = $request->get('quarter');
+
+        $params = [$userId];
+        $where = "";
+        $this->appendYearSqlFilter($where, $params, $year, 'ts_win', 'date');
+        $this->appendQuarterSqlFilter($where, $params, $year, $quarter, 'ts_win', 'date');
+
+        $projects = DB::select("
+            SELECT
+                t.transac_id,
+                t.Product_detail,
+                t.product_value,
+                c.company,
+                pg.product as product_group,
+                DATE_FORMAT(ts_win.date, '%Y-%m-%d') as win_date
+            FROM transactional t
+            JOIN (
+                SELECT ts.transac_id, ts.date
+                FROM transactional_step ts
+                JOIN step s ON s.level_id = ts.level_id
+                WHERE s.orderlv = 5
+                AND (ts.transacstep_id, ts.transac_id) IN (
+                    SELECT MAX(ts2.transacstep_id), ts2.transac_id
+                    FROM transactional_step ts2
+                    GROUP BY ts2.transac_id
+                )
+            ) ts_win ON ts_win.transac_id = t.transac_id
+            LEFT JOIN company_catalog c ON t.company_id = c.company_id
+            LEFT JOIN product_group pg ON t.Product_id = pg.product_id
+            WHERE t.user_id = ? {$where}
+            ORDER BY ts_win.date DESC
+        ", $params);
+
+        return response()->json($projects);
     }
 
     public function createSales()
@@ -584,12 +779,69 @@ class UserController extends Controller
         
         return DB::select("
             SELECT 
-                pg.product,
+                pg.product_id,
+                COALESCE(pg.product, 'ไม่ระบุ') as product,
                 SUM(t.product_value) as sum_value
             FROM transactional t
-            JOIN product_group pg ON pg.product_id = t.Product_id
+            LEFT JOIN product_group pg ON pg.product_id = t.Product_id
             {$whereClause}
             GROUP BY pg.product_id, pg.product
+            HAVING SUM(t.product_value) > 0
         ", $params);
+    }
+
+    private function resolveDashboardYearFilter(Request $request)
+    {
+        $currentYear = (int) date('Y');
+        $yearInput = $request->query('year');
+        $hasYearParam = $request->query->has('year');
+
+        if (!$hasYearParam || $yearInput === null || $yearInput === '') {
+            return [
+                'year' => $currentYear,
+                'selected' => (string) $currentYear,
+            ];
+        }
+
+        $normalized = strtolower(trim((string) $yearInput));
+        if ($normalized === '' || $normalized === 'all') {
+            return [
+                'year' => null,
+                'selected' => 'all',
+            ];
+        }
+
+        $year = (int) $normalized;
+        if ($year <= 0) {
+            return [
+                'year' => $currentYear,
+                'selected' => (string) $currentYear,
+            ];
+        }
+
+        return [
+            'year' => $year,
+            'selected' => (string) $year,
+        ];
+    }
+
+    private function appendYearSqlFilter(&$where, &$params, $year, $table = 't', $column = 'contact_start_date')
+    {
+        if ($year === null) {
+            return;
+        }
+
+        $where .= " AND YEAR({$table}.{$column}) = ?";
+        $params[] = $year;
+    }
+
+    private function appendQuarterSqlFilter(&$where, &$params, $year, $quarter, $table = 't', $column = 'contact_start_date')
+    {
+        if ($year === null || !$quarter) {
+            return;
+        }
+
+        $where .= " AND QUARTER({$table}.{$column}) = ?";
+        $params[] = $quarter;
     }
 }

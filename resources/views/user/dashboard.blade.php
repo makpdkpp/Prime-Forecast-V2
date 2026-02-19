@@ -20,6 +20,10 @@
         </div>
     @endif
     
+    @php
+        $activeYear = $selectedYear ?? (request('year') ?: 'all');
+    @endphp
+
     <!-- Filter Section -->
     <div class="row mb-2">
         <div class="col-md-12">
@@ -27,13 +31,13 @@
                 <div class="card-header py-2">
                     <h3 class="card-title"><i class="fas fa-filter"></i> กรองข้อมูล</h3>
                     <div class="card-tools">
-                        @if(request('year') || request('quarter'))
+                        @if($activeYear !== 'all' || request('quarter'))
                             <span class="badge badge-success mr-2">
-                                @if(request('year'))
-                                    ปี {{ request('year') + 543 }}
+                                @if($activeYear !== 'all')
+                                    ปี {{ (int) $activeYear + 543 }}
                                 @endif
                                 @if(request('quarter'))
-                                    @if(request('year')) / @endif
+                                    @if($activeYear !== 'all') / @endif
                                     Q{{ request('quarter') }}
                                 @endif
                             </span>
@@ -49,9 +53,9 @@
                             <div class="col-md-2">
                                 <label class="mb-1"><small>ปีงบประมาณ (พ.ศ.):</small></label>
                                 <select name="year" class="form-control form-control-sm">
-                                    <option value="">ทุกปี</option>
+                                    <option value="all" {{ $activeYear === 'all' ? 'selected' : '' }}>ทุกปี</option>
                                     @foreach($availableYears as $y)
-                                        <option value="{{ $y }}" {{ request('year') == $y ? 'selected' : '' }}>
+                                        <option value="{{ $y }}" {{ (string) $activeYear === (string) $y ? 'selected' : '' }}>
                                             {{ $y + 543 }}
                                         </option>
                                     @endforeach
@@ -117,6 +121,97 @@
             </div>
         </div>
     </div>
+
+    <!-- Chart Detail Modal -->
+    <div class="modal fade" id="chartDetailModal" tabindex="-1" role="dialog">
+        <div class="modal-dialog modal-xl" role="document">
+            <div class="modal-content">
+                <div class="modal-header bg-info">
+                    <h5 class="modal-title text-white"><i class="fas fa-chart-bar"></i> <span id="chartDetailTitle">รายละเอียดโครงการ</span></h5>
+                    <button type="button" class="close text-white" data-dismiss="modal"><span>&times;</span></button>
+                </div>
+                <div class="modal-body">
+                    <div id="chartDetailLoading" class="text-center py-4" style="display:none;">
+                        <i class="fas fa-spinner fa-spin fa-2x"></i>
+                        <p class="mt-2">กำลังโหลดข้อมูล...</p>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover table-sm" id="chartDetailTable" style="display:none;">
+                            <thead class="thead-dark">
+                                <tr>
+                                    <th>#</th>
+                                    <th>โปรเจค</th>
+                                    <th>ลูกค้า</th>
+                                    <th>กลุ่มสินค้า</th>
+                                    <th>ทีม</th>
+                                    <th>สถานะ</th>
+                                    <th>วันที่ WIN</th>
+                                    <th class="text-right">มูลค่า (บาท)</th>
+                                    <th>วันที่เริ่ม</th>
+                                </tr>
+                            </thead>
+                            <tbody id="chartDetailBody"></tbody>
+                            <tfoot>
+                                <tr class="font-weight-bold bg-light">
+                                    <td colspan="7" class="text-right">รวมทั้งหมด</td>
+                                    <td class="text-right" id="chartDetailTotal"></td>
+                                    <td></td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                    <div id="chartDetailEmpty" class="text-center text-muted py-4" style="display:none;">
+                        <i class="fas fa-inbox fa-2x"></i>
+                        <p class="mt-2">ไม่พบข้อมูล</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Win Projects Modal -->
+    <div class="modal fade" id="winProjectsModal" tabindex="-1" role="dialog">
+        <div class="modal-dialog modal-lg" role="document">
+            <div class="modal-content">
+                <div class="modal-header bg-success">
+                    <h5 class="modal-title text-white"><i class="fas fa-trophy"></i> โปรเจคที่ Win - <span id="winProjectsUserName">ฉัน</span></h5>
+                    <button type="button" class="close text-white" data-dismiss="modal"><span>&times;</span></button>
+                </div>
+                <div class="modal-body">
+                    <div id="winProjectsLoading" class="text-center py-4" style="display:none;">
+                        <i class="fas fa-spinner fa-spin fa-2x"></i>
+                        <p class="mt-2">กำลังโหลดข้อมูล...</p>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover" id="winProjectsTable" style="display:none;">
+                            <thead class="thead-dark">
+                                <tr>
+                                    <th>#</th>
+                                    <th>โปรเจค</th>
+                                    <th>ลูกค้า</th>
+                                    <th>กลุ่มสินค้า</th>
+                                    <th class="text-right">มูลค่า (บาท)</th>
+                                    <th>วันที่ Win</th>
+                                </tr>
+                            </thead>
+                            <tbody id="winProjectsBody"></tbody>
+                            <tfoot>
+                                <tr class="font-weight-bold bg-light">
+                                    <td colspan="4" class="text-right">รวมทั้งหมด</td>
+                                    <td class="text-right" id="winProjectsTotal"></td>
+                                    <td></td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                    <div id="winProjectsEmpty" class="text-center text-muted py-4" style="display:none;">
+                        <i class="fas fa-inbox fa-2x"></i>
+                        <p class="mt-2">ไม่พบข้อมูลโปรเจค</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 @stop
 
 @section('js')
@@ -126,6 +221,7 @@
     const saleStepData = @json($saleStepData);
     const winForecastData = @json($winForecastData);
     const sumValuePercentData = @json($sumValuePercentData);
+    const currentUserName = @json(auth()->user()->nname ?? 'ฉัน');
 
     function formatMonthYearBe(rawMonth) {
         if (!rawMonth) return '-';
@@ -150,14 +246,20 @@
         }
 
         const labels = rows.map(r => formatMonthYearBe(r.month));
-        const datasets = [
-            { label: 'Present', data: rows.map(r => +r.present_value), backgroundColor: 'rgba(128, 81, 255, 1)' },
-            { label: 'Budget', data: rows.map(r => +r.budgeted_value), backgroundColor: 'rgba(255, 0, 144, 1)' },
-            { label: 'TOR', data: rows.map(r => +r.tor_value), backgroundColor: 'rgba(230, 180, 40, 1)' },
-            { label: 'Bidding', data: rows.map(r => +r.bidding_value), backgroundColor: 'rgba(230, 120, 40, 1)' },
-            { label: 'Win', data: rows.map(r => +r.win_value), backgroundColor: 'rgba(34, 139, 34, 1)' },
-            { label: 'Lost', data: rows.map(r => +r.lost_value), backgroundColor: 'rgba(178, 34, 34, 1)' }
+        const stepConfig = [
+            { orderlv: 1, label: 'Present', key: 'present_value', backgroundColor: 'rgba(128, 81, 255, 1)' },
+            { orderlv: 2, label: 'Budget', key: 'budgeted_value', backgroundColor: 'rgba(255, 0, 144, 1)' },
+            { orderlv: 3, label: 'TOR', key: 'tor_value', backgroundColor: 'rgba(230, 180, 40, 1)' },
+            { orderlv: 4, label: 'Bidding', key: 'bidding_value', backgroundColor: 'rgba(230, 120, 40, 1)' },
+            { orderlv: 5, label: 'Win', key: 'win_value', backgroundColor: 'rgba(34, 139, 34, 1)' },
+            { orderlv: 6, label: 'Lost', key: 'lost_value', backgroundColor: 'rgba(178, 34, 34, 1)' }
         ];
+        const datasets = stepConfig.map(cfg => ({
+            label: cfg.label,
+            data: rows.map(r => +r[cfg.key]),
+            backgroundColor: cfg.backgroundColor,
+            orderlv: cfg.orderlv
+        }));
 
         new Chart(chartNode.getContext('2d'), {
             type: 'bar',
@@ -171,6 +273,15 @@
                 scales: {
                     x: { stacked: false, title: { display: true, text: 'เดือน' } },
                     y: { stacked: false, beginAtZero: true, title: { display: true, text: 'มูลค่าโครงการ' } }
+                },
+                onClick: function(evt, elements) {
+                    if (!elements.length) return;
+                    const el = elements[0];
+                    const monthRaw = saleStepData[el.index]?.month;
+                    const dataset = datasets[el.datasetIndex];
+                    const stepLabel = dataset.label;
+                    const orderlv = dataset.orderlv;
+                    showChartDetail('step', orderlv, 'สถานะ: ' + stepLabel + ' — ' + formatMonthYearBe(monthRaw), monthRaw);
                 }
             }
         });
@@ -201,7 +312,17 @@
             options: {
                 responsive: true,
                 plugins: { legend: { display: false } },
-                scales: { y: { beginAtZero: true, title: { display: true, text: 'จำนวนเงิน' } } }
+                scales: { y: { beginAtZero: true, title: { display: true, text: 'จำนวนเงิน' } } },
+                onClick: function(evt, elements) {
+                    if (!elements.length) return;
+                    const index = elements[0].index;
+                    const label = labels[index];
+                    if (label === 'Win') {
+                        showWinProjects(authUserId(), currentUserName);
+                    } else {
+                        showChartDetail('user_forecast', authUserId(), 'รายละเอียดรายการ: ' + label);
+                    }
+                }
             }
         });
     }
@@ -257,9 +378,127 @@
                             }
                         }
                     }
+                },
+                onClick: function(evt, elements) {
+                    if (!elements.length) return;
+                    const idx = elements[0].index;
+                    const productId = rows[idx]?.product_id;
+                    const productName = rows[idx]?.product || '';
+                    if (!productId) return;
+                    showChartDetail('product', productId, 'โซลูชั่น: ' + productName);
                 }
             }
         });
+    }
+
+    function authUserId() {
+        return {{ auth()->id() }};
+    }
+
+    function showChartDetail(type, value, title, value2) {
+        const modal = $('#chartDetailModal');
+        const loading = $('#chartDetailLoading');
+        const table = $('#chartDetailTable');
+        const tbody = $('#chartDetailBody');
+        const total = $('#chartDetailTotal');
+        const empty = $('#chartDetailEmpty');
+
+        $('#chartDetailTitle').text(title || 'รายละเอียดโครงการ');
+        loading.show();
+        table.hide();
+        empty.hide();
+        tbody.empty();
+        modal.modal('show');
+
+        const params = new URLSearchParams(window.location.search);
+        params.set('type', type);
+        params.set('value', value);
+        if (value2) params.set('value2', value2);
+
+        fetch('/user/dashboard/chart-detail?' + params.toString())
+            .then(res => {
+                if (!res.ok) throw new Error('HTTP ' + res.status);
+                return res.json();
+            })
+            .then(projects => {
+                loading.hide();
+                if (!projects.length) {
+                    empty.show();
+                    return;
+                }
+                let sumValue = 0;
+                projects.forEach((p, i) => {
+                    const val = Number(p.product_value) || 0;
+                    sumValue += val;
+                    tbody.append(`<tr>
+                        <td>${i + 1}</td>
+                        <td>${p.Product_detail || '-'}</td>
+                        <td>${p.company || '-'}</td>
+                        <td>${p.product_group || '-'}</td>
+                        <td>${p.team || '-'}</td>
+                        <td>${p.step_name || '-'}</td>
+                        <td>${p.win_date || '-'}</td>
+                        <td class="text-right">${val.toLocaleString('th-TH', {minimumFractionDigits: 2})}</td>
+                        <td>${p.contact_start_date || '-'}</td>
+                    </tr>`);
+                });
+                total.text(sumValue.toLocaleString('th-TH', {minimumFractionDigits: 2}));
+                table.show();
+            })
+            .catch(err => {
+                loading.hide();
+                empty.text('เกิดข้อผิดพลาด: ' + err.message).show();
+            });
+    }
+
+    function showWinProjects(userId, userName) {
+        const modal = $('#winProjectsModal');
+        const loading = $('#winProjectsLoading');
+        const table = $('#winProjectsTable');
+        const tbody = $('#winProjectsBody');
+        const total = $('#winProjectsTotal');
+        const empty = $('#winProjectsEmpty');
+
+        $('#winProjectsUserName').text(userName || 'ฉัน');
+        loading.show();
+        table.hide();
+        empty.hide();
+        tbody.empty();
+        modal.modal('show');
+
+        const params = new URLSearchParams(window.location.search);
+
+        fetch('/user/dashboard/win-projects?' + params.toString())
+            .then(res => {
+                if (!res.ok) throw new Error('HTTP ' + res.status);
+                return res.json();
+            })
+            .then(projects => {
+                loading.hide();
+                if (!projects.length) {
+                    empty.show();
+                    return;
+                }
+                let sumValue = 0;
+                projects.forEach((p, i) => {
+                    const val = Number(p.product_value) || 0;
+                    sumValue += val;
+                    tbody.append(`<tr>
+                        <td>${i + 1}</td>
+                        <td>${p.Product_detail || '-'}</td>
+                        <td>${p.company || '-'}</td>
+                        <td>${p.product_group || '-'}</td>
+                        <td class="text-right">${val.toLocaleString('th-TH', {minimumFractionDigits: 2})}</td>
+                        <td>${p.win_date || '-'}</td>
+                    </tr>`);
+                });
+                total.text(sumValue.toLocaleString('th-TH', {minimumFractionDigits: 2}));
+                table.show();
+            })
+            .catch(err => {
+                loading.hide();
+                empty.text('เกิดข้อผิดพลาด: ' + err.message).show();
+            });
     }
 
     // Initialize charts
