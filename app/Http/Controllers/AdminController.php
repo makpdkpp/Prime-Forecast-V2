@@ -403,8 +403,15 @@ class AdminController extends Controller
 
         $params = [];
         $where = "";
-        $this->appendYearSqlFilter($where, $params, $year, 't');
-        $this->appendQuarterSqlFilter($where, $params, $year, $quarter, 't');
+        
+        // For step-based charts, use ts.date for year/quarter filter to match saleStatus/saleStatusValue logic
+        if ($type === 'step') {
+            $this->appendYearSqlFilter($where, $params, $year, 'ts', 'date');
+            $this->appendQuarterSqlFilter($where, $params, $year, $quarter, 'ts', 'date');
+        } else {
+            $this->appendYearSqlFilter($where, $params, $year, 't');
+            $this->appendQuarterSqlFilter($where, $params, $year, $quarter, 't');
+        }
 
         // WIN subquery — used by most chart types
         $winJoin = "
