@@ -445,7 +445,6 @@
             },
             options: {
                 responsive: true,
-                indexAxis: 'y',
                 onClick: function(evt, elements) {
                     if (elements.length === 0) return;
                     const idx = elements[0].index;
@@ -453,7 +452,7 @@
                     showChartDetail('team', item.team_id, 'ยอดขายทีม: ' + item.team);
                 },
                 scales: {
-                    x: {
+                    y: {
                         beginAtZero: true,
                         ticks: {
                             callback: function(value) {
@@ -486,7 +485,6 @@
             },
             options: {
                 responsive: true,
-                indexAxis: 'y',
                 onClick: function(evt, elements) {
                     if (elements.length === 0) return;
                     const idx = elements[0].index;
@@ -494,7 +492,7 @@
                     showChartDetail('user', item.user_id, 'ยอดขาย: ' + item.nname + ' ' + (item.surename || ''));
                 },
                 scales: {
-                    x: {
+                    y: {
                         beginAtZero: true,
                         ticks: {
                             callback: function(value) {
@@ -696,7 +694,6 @@
             },
             options: {
                 responsive: true,
-                indexAxis: 'y',
                 onClick: function(evt, elements) {
                     if (elements.length === 0) return;
                     const idx = elements[0].index;
@@ -708,7 +705,7 @@
                     showChartDetail(types[dsIndex], person.user_id, labels[dsIndex] + ': ' + userName);
                 },
                 scales: {
-                    x: {
+                    y: {
                         beginAtZero: true,
                         ticks: {
                             callback: function(value) {

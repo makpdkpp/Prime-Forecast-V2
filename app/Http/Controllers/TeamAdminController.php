@@ -746,11 +746,29 @@ class TeamAdminController extends Controller
 
     private function resolveDashboardYearFilter(Request $request): array
     {
-        $year = $request->get('year');
-        if ($year === null || $year === '' || $year === 'all') {
-            return ['year' => null, 'selected' => 'all'];
+        $currentYear = (int) date('Y');
+        $yearInput = $request->query('year');
+        $hasYearParam = $request->query->has('year');
+
+        if (!$hasYearParam) {
+            return [
+                'year' => $currentYear,
+                'selected' => (string) $currentYear,
+            ];
         }
-        return ['year' => (int) $year, 'selected' => (int) $year];
+
+        $normalized = strtolower(trim((string) $yearInput));
+        if ($normalized === '' || $normalized === 'all') {
+            return [
+                'year' => null,
+                'selected' => 'all',
+            ];
+        }
+
+        return [
+            'year' => (int) $yearInput,
+            'selected' => (string) $yearInput,
+        ];
     }
 
     private function quarterDateRange($year, $quarter)
