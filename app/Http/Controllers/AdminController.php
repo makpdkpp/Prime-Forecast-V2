@@ -40,15 +40,15 @@ class AdminController extends Controller
         // Win value and count (latest step is WIN - level = 5)
         $winParams = [];
         $winWhere = "";
-        $this->appendYearSqlFilter($winWhere, $winParams, $year, 't');
-        $this->appendQuarterSqlFilter($winWhere, $winParams, $year, $quarter, 't');
-        $winData = DB::select("
+        $this->appendYearSqlFilter($winWhere, $winParams, $year, 'ts_win', 'date');
+        $this->appendQuarterSqlFilter($winWhere, $winParams, $year, $quarter, 'ts_win', 'date');
+        $winData = DB::select(" 
             SELECT 
                 COALESCE(SUM(t.product_value), 0) as win_value,
                 COUNT(*) as win_count
             FROM transactional t
             JOIN (
-                SELECT ts.transac_id
+                SELECT ts.transac_id, ts.date
                 FROM transactional_step ts
                 JOIN step s ON s.level_id = ts.level_id
                 WHERE s.level = 5
@@ -57,20 +57,20 @@ class AdminController extends Controller
                     FROM transactional_step ts2
                     GROUP BY ts2.transac_id
                 )
-            ) wintrans ON wintrans.transac_id = t.transac_id
+            ) ts_win ON ts_win.transac_id = t.transac_id
             WHERE 1=1 {$winWhere}
         ", $winParams);
         
         // Lost count (latest step is LOST - level = 6)
         $lostParams = [];
         $lostWhere = "";
-        $this->appendYearSqlFilter($lostWhere, $lostParams, $year, 't');
-        $this->appendQuarterSqlFilter($lostWhere, $lostParams, $year, $quarter, 't');
-        $lostCount = DB::select("
+        $this->appendYearSqlFilter($lostWhere, $lostParams, $year, 'ts_lost', 'date');
+        $this->appendQuarterSqlFilter($lostWhere, $lostParams, $year, $quarter, 'ts_lost', 'date');
+        $lostCount = DB::select(" 
             SELECT COUNT(*) as lost_count
             FROM transactional t
             JOIN (
-                SELECT ts.transac_id
+                SELECT ts.transac_id, ts.date
                 FROM transactional_step ts
                 JOIN step s ON s.level_id = ts.level_id
                 WHERE s.level = 6
@@ -79,7 +79,7 @@ class AdminController extends Controller
                     FROM transactional_step ts2
                     GROUP BY ts2.transac_id
                 )
-            ) losttrans ON losttrans.transac_id = t.transac_id
+            ) ts_lost ON ts_lost.transac_id = t.transac_id
             WHERE 1=1 {$lostWhere}
         ", $lostParams);
         
