@@ -209,6 +209,7 @@ class AdminController extends Controller
             return DB::select("
                 SELECT 
                     DATE_FORMAT(ts.date, '%Y-%m') as sale_month,
+                    s.level_id,
                     s.orderlv,
                     s.level,
                     COUNT(*) as count
@@ -222,7 +223,7 @@ class AdminController extends Controller
                 )
                 AND s.orderlv BETWEEN 1 AND 6
                 {$saleStatusWhere}
-                GROUP BY DATE_FORMAT(ts.date, '%Y-%m'), s.orderlv, s.level
+                GROUP BY DATE_FORMAT(ts.date, '%Y-%m'), s.level_id, s.orderlv, s.level
                 ORDER BY sale_month, s.orderlv
             ", $saleStatusParams);
         });
@@ -239,6 +240,7 @@ class AdminController extends Controller
             return DB::select("
                 SELECT 
                     DATE_FORMAT(ts.date, '%Y-%m') as sale_month,
+                    s.level_id,
                     s.orderlv,
                     s.level,
                     SUM(t.product_value) as total_value
@@ -252,7 +254,7 @@ class AdminController extends Controller
                 )
                 AND s.orderlv BETWEEN 1 AND 6
                 {$saleStatusValueWhere}
-                GROUP BY DATE_FORMAT(ts.date, '%Y-%m'), s.orderlv, s.level
+                GROUP BY DATE_FORMAT(ts.date, '%Y-%m'), s.level_id, s.orderlv, s.level
                 ORDER BY sale_month, s.orderlv
             ", $saleStatusValueParams);
         });
@@ -472,7 +474,7 @@ class AdminController extends Controller
                 break;
             case 'step': // สถานะการขาย — by step orderlv + optional month
                 $extraJoin = $stepJoin;
-                $extraWhere = " AND s.orderlv = ?";
+                $extraWhere = " AND s.level_id = ?";
                 $extraParams[] = $value;
                 if ($value2) {
                     $extraWhere .= " AND DATE_FORMAT(ts.date, '%Y-%m') = ?";

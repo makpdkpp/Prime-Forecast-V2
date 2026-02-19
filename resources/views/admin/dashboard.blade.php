@@ -687,8 +687,11 @@
                     const el = elements[0];
                     const month = months[el.index];
                     const orderlv = Object.keys(stepConfig)[el.datasetIndex];
+                    const row = data.find(r => r.sale_month === month && String(r.orderlv) === String(orderlv));
+                    const count = row ? Number(row.count) : 0;
+                    if (!row || count <= 0 || !row.level_id) return;
                     const stepLabel = stepConfig[orderlv].label;
-                    showChartDetail('step', orderlv, 'สถานะ: ' + stepLabel + ' — ' + month, month);
+                    showChartDetail('step', row.level_id, 'สถานะ: ' + stepLabel + ' — ' + month, month);
                 },
                 scales: {
                     x: { stacked: false },
@@ -762,8 +765,11 @@
                     const el = elements[0];
                     const month = months[el.index];
                     const orderlv = Object.keys(stepConfig)[el.datasetIndex];
+                    const row = data.find(r => r.sale_month === month && String(r.orderlv) === String(orderlv));
+                    const totalValue = row ? Number(row.total_value) : 0;
+                    if (!row || totalValue <= 0 || !row.level_id) return;
                     const stepLabel = stepConfig[orderlv].label;
-                    showChartDetail('step', orderlv, 'มูลค่า: ' + stepLabel + ' — ' + month, month);
+                    showChartDetail('step', row.level_id, 'มูลค่า: ' + stepLabel + ' — ' + month, month);
                 },
                 scales: {
                     x: { stacked: false },
