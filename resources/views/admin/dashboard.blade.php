@@ -7,6 +7,10 @@
 @stop
 
 @section('content')
+    @php
+        $activeYear = $selectedYear ?? (request('year') ?: 'all');
+    @endphp
+
     <!-- Filter Section -->
     <div class="row mb-2">
         <div class="col-md-12">
@@ -14,13 +18,13 @@
                 <div class="card-header py-2">
                     <h3 class="card-title"><i class="fas fa-filter"></i> กรองข้อมูล</h3>
                     <div class="card-tools">
-                        @if(request('year') || request('quarter'))
+                        @if($activeYear !== 'all' || request('quarter'))
                             <span class="badge badge-info mr-2">
-                                @if(request('year'))
-                                    ปี {{ request('year') + 543 }}
+                                @if($activeYear !== 'all')
+                                    ปี {{ (int) $activeYear + 543 }}
                                 @endif
                                 @if(request('quarter'))
-                                    @if(request('year')) / @endif
+                                    @if($activeYear !== 'all') / @endif
                                     Q{{ request('quarter') }}
                                 @endif
                             </span>
@@ -36,9 +40,9 @@
                             <div class="col-md-2">
                                 <label class="mb-1"><small>ปีงบประมาณ (พ.ศ.):</small></label>
                                 <select name="year" class="form-control form-control-sm">
-                                    <option value="">ทุกปี</option>
+                                    <option value="all" {{ $activeYear === 'all' ? 'selected' : '' }}>ทุกปี</option>
                                     @foreach($availableYears as $y)
-                                        <option value="{{ $y }}" {{ request('year') == $y ? 'selected' : '' }}>{{ $y + 543 }}</option>
+                                        <option value="{{ $y }}" {{ (string) $activeYear === (string) $y ? 'selected' : '' }}>{{ $y + 543 }}</option>
                                     @endforeach
                                 </select>
                             </div>
@@ -331,6 +335,20 @@
         'topCustomerChart'
     ];
 
+    function formatMonthYearBe(rawMonth) {
+        if (!rawMonth) return '-';
+        const parts = String(rawMonth).split('-');
+        if (parts.length < 2) return rawMonth;
+
+        const year = Number(parts[0]);
+        const month = Number(parts[1]);
+        if (!Number.isFinite(year) || !Number.isFinite(month) || month < 1 || month > 12) {
+            return rawMonth;
+        }
+
+        return String(month).padStart(2, '0') + '-' + String(year + 543);
+    }
+
     function injectChartSkeletons() {
         chartIds.forEach((id) => {
             const canvas = document.getElementById(id);
@@ -357,26 +375,44 @@
         const ctx = document.getElementById('winstatusValueChart');
         if (!ctx) return;
         
-        const labels = data.map(r => r.sale_month);
+        const rawMonths = data.map(r => r.sale_month);
+        const labels = rawMonths.map(formatMonthYearBe);
         const values = data.map(r => Number(r.cumulative_win_value));
+        const totalTargetValue = targetForecastWinData.reduce((sum, row) => sum + (Number(row.target_value) || 0), 0);
+        const targetLineValues = rawMonths.map(() => totalTargetValue);
         
         new Chart(ctx.getContext('2d'), {
             type: 'bar',
             data: {
                 labels: labels,
-                datasets: [{
-                    label: 'ยอด Win สะสม',
-                    data: values,
-                    backgroundColor: 'rgba(40, 167, 69, 0.8)'
-                }]
+                datasets: [
+                    {
+                        label: 'ยอด Win สะสม',
+                        data: values,
+                        backgroundColor: 'rgba(40, 167, 69, 0.8)'
+                    },
+                    {
+                        type: 'line',
+                        label: 'Target รวม (ทุก User)',
+                        data: targetLineValues,
+                        borderColor: 'rgba(153, 102, 255, 1)',
+                        backgroundColor: 'rgba(153, 102, 255, 0.15)',
+                        borderWidth: 2,
+                        pointRadius: 2,
+                        pointHoverRadius: 4,
+                        fill: false,
+                        tension: 0.2
+                    }
+                ]
             },
             options: {
                 responsive: true,
                 onClick: function(evt, elements) {
                     if (elements.length === 0) return;
                     const idx = elements[0].index;
-                    const month = data[idx].sale_month;
-                    showChartDetail('month', month, 'ยอดขาย Win เดือน ' + month);
+                    const month = rawMonths[idx];
+                    const displayMonth = labels[idx];
+                    showChartDetail('month', month, 'ยอดขาย Win เดือน ' + displayMonth);
                 },
                 scales: {
                     y: {
@@ -384,6 +420,19 @@
                         ticks: {
                             callback: function(value) {
                                 return value.toLocaleString('th-TH');
+                            }
+                        }
+                    }
+                },
+                plugins: {
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const value = Number(context.raw) || 0;
+                                if (context.dataset.type === 'line') {
+                                    return 'เป้ารวม (Target ทุก User): ' + value.toLocaleString('th-TH') + ' บาท';
+                                }
+                                return 'ยอด Win สะสม: ' + value.toLocaleString('th-TH') + ' บาท';
                             }
                         }
                     }
@@ -658,6 +707,7 @@
         };
 
         const months = [...new Set(data.map(r => r.sale_month))].sort();
+        const displayMonths = months.map(formatMonthYearBe);
 
         const datasets = Object.keys(stepConfig).map(orderlv => {
             const cfg = stepConfig[orderlv];
@@ -677,7 +727,7 @@
         new Chart(ctx.getContext('2d'), {
             type: 'bar',
             data: {
-                labels: months,
+                labels: displayMonths,
                 datasets: datasets
             },
             options: {
@@ -686,9 +736,10 @@
                     if (elements.length === 0) return;
                     const el = elements[0];
                     const month = months[el.index];
+                    const displayMonth = displayMonths[el.index];
                     const orderlv = Object.keys(stepConfig)[el.datasetIndex];
                     const stepLabel = stepConfig[orderlv].label;
-                    showChartDetail('step', orderlv, 'สถานะ: ' + stepLabel + ' — ' + month, month);
+                    showChartDetail('step', orderlv, 'สถานะ: ' + stepLabel + ' — ' + displayMonth, month);
                 },
                 scales: {
                     x: { stacked: false },
@@ -733,6 +784,7 @@
         };
 
         const months = [...new Set(data.map(r => r.sale_month))].sort();
+        const displayMonths = months.map(formatMonthYearBe);
 
         const datasets = Object.keys(stepConfig).map(orderlv => {
             const cfg = stepConfig[orderlv];
@@ -752,7 +804,7 @@
         new Chart(ctx.getContext('2d'), {
             type: 'bar',
             data: {
-                labels: months,
+                labels: displayMonths,
                 datasets: datasets
             },
             options: {
@@ -761,9 +813,10 @@
                     if (elements.length === 0) return;
                     const el = elements[0];
                     const month = months[el.index];
+                    const displayMonth = displayMonths[el.index];
                     const orderlv = Object.keys(stepConfig)[el.datasetIndex];
                     const stepLabel = stepConfig[orderlv].label;
-                    showChartDetail('step', orderlv, 'มูลค่า: ' + stepLabel + ' — ' + month, month);
+                    showChartDetail('step', orderlv, 'มูลค่า: ' + stepLabel + ' — ' + displayMonth, month);
                 },
                 scales: {
                     x: { stacked: false },

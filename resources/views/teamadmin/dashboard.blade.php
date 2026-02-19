@@ -273,6 +273,20 @@
         'topCustomerChart'
     ];
 
+    function formatMonthYearBe(rawMonth) {
+        if (!rawMonth) return '-';
+        const parts = String(rawMonth).split('-');
+        if (parts.length < 2) return rawMonth;
+
+        const year = Number(parts[0]);
+        const month = Number(parts[1]);
+        if (!Number.isFinite(year) || !Number.isFinite(month) || month < 1 || month > 12) {
+            return rawMonth;
+        }
+
+        return String(month).padStart(2, '0') + '-' + String(year + 543);
+    }
+
     function injectChartSkeletons() {
         chartIds.forEach((id) => {
             const canvas = document.getElementById(id);
@@ -355,7 +369,8 @@
         const ctx = document.getElementById('winstatusValueChart');
         if (!ctx) return;
         
-        const labels = data.map(r => r.sale_month);
+        const rawMonths = data.map(r => r.sale_month);
+        const labels = rawMonths.map(formatMonthYearBe);
         const values = data.map(r => Number(r.cumulative_win_value));
         
         new Chart(ctx.getContext('2d'), {
@@ -373,8 +388,9 @@
                 onClick: function(evt, elements) {
                     if (elements.length === 0) return;
                     const idx = elements[0].index;
-                    const month = data[idx].sale_month;
-                    showChartDetail('month', month, 'ยอดขาย Win เดือน ' + month);
+                    const month = rawMonths[idx];
+                    const displayMonth = labels[idx];
+                    showChartDetail('month', month, 'ยอดขาย Win เดือน ' + displayMonth);
                 },
                 scales: {
                     y: {
