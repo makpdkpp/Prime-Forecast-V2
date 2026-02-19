@@ -107,6 +107,8 @@ Route::middleware(['auth'])->group(function () {
     Route::middleware(['user'])->prefix('user')->name('user.')->group(function () {
         Route::get('/dashboard', [UserController::class, 'dashboard'])->name('dashboard');
         Route::get('/dashboard/table', [UserController::class, 'dashboardTable'])->name('dashboard.table');
+        Route::get('/dashboard/chart-detail', [UserController::class, 'chartDetail'])->name('dashboard.chartDetail');
+        Route::get('/dashboard/win-projects', [UserController::class, 'winProjects'])->name('dashboard.winProjects');
         Route::get('/sales/create', [UserController::class, 'createSales'])->name('sales.create');
         Route::post('/sales', [UserController::class, 'storeSales'])->name('sales.store');
         Route::get('/sales/{id}/edit', [UserController::class, 'editSales'])->name('sales.edit');
