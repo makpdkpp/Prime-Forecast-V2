@@ -62,10 +62,16 @@ class UserController extends Controller
     {
         $userId = auth()->id();
         
-        // Get filter parameters
-        $resolvedYear = $this->resolveDashboardYearFilter($request);
-        $year = $resolvedYear['year'];
-        $selectedYear = $resolvedYear['selected'];
+        // Get filter parameters — default to "all years" for table view
+        $yearInput = $request->query('year');
+        $hasYearParam = $request->query->has('year');
+        if (!$hasYearParam || $yearInput === null || $yearInput === '' || strtolower(trim((string) $yearInput)) === 'all') {
+            $year = null;
+            $selectedYear = 'all';
+        } else {
+            $year = (int) $yearInput;
+            $selectedYear = (string) $year;
+        }
         $quarter = $request->get('quarter');
         
         // Get available years
