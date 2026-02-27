@@ -62,10 +62,16 @@ class UserController extends Controller
     {
         $userId = auth()->id();
         
-        // Get filter parameters
-        $resolvedYear = $this->resolveDashboardYearFilter($request);
-        $year = $resolvedYear['year'];
-        $selectedYear = $resolvedYear['selected'];
+        // Get filter parameters — default to "all years" for table view
+        $yearInput = $request->query('year');
+        $hasYearParam = $request->query->has('year');
+        if (!$hasYearParam || $yearInput === null || $yearInput === '' || strtolower(trim((string) $yearInput)) === 'all') {
+            $year = null;
+            $selectedYear = 'all';
+        } else {
+            $year = (int) $yearInput;
+            $selectedYear = (string) $year;
+        }
         $quarter = $request->get('quarter');
         
         // Get available years
@@ -136,6 +142,8 @@ class UserController extends Controller
                 $where .= " AND QUARTER(t.contact_start_date) = ?";
                 $params[] = $quarter;
             }
+        } elseif ($type === 'user_forecast') {
+            // Year/quarter filter handled inside switch case below (uses fiscalyear)
         } elseif ($type === 'user_win') {
             $this->appendYearSqlFilter($where, $params, $year, 'wintrans', 'win_date');
             $this->appendQuarterSqlFilter($where, $params, $year, $quarter, 'wintrans', 'win_date');
@@ -193,7 +201,15 @@ class UserController extends Controller
                 $extraParams[] = $value;
                 break;
             case 'user_forecast':
-                // list all transactions for the user
+                // Filter to match getWinForecastData: use fiscalyear + QUARTER(contact_start_date)
+                if ($year !== null) {
+                    $where .= " AND t.fiscalyear = ?";
+                    $params[] = $year;
+                }
+                if ($quarter) {
+                    $where .= " AND QUARTER(t.contact_start_date) = ?";
+                    $params[] = $quarter;
+                }
                 break;
             case 'user_win':
                 $extraJoin = $winJoin;

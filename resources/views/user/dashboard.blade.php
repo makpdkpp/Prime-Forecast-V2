@@ -319,9 +319,10 @@
                     const label = labels[index];
                     if (label === 'Win') {
                         showWinProjects(authUserId(), currentUserName);
-                    } else {
-                        showChartDetail('user_forecast', authUserId(), 'รายละเอียดรายการ: ' + label);
+                    } else if (label === 'Forecast') {
+                        showChartDetail('user_forecast', authUserId(), 'รายละเอียดรายการ: Forecast');
                     }
+                    // Target: ไม่แสดง modal
                 }
             }
         });
