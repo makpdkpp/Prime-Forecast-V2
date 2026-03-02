@@ -10,7 +10,7 @@ class RegistrationController extends Controller
 {
     public function showRegistrationForm($token)
     {
-        $user = User::where('token', $token)
+        $user = User::where('reset_token', $token)
             ->where('token_expiry', '>', now())
             ->first();
 
@@ -23,7 +23,7 @@ class RegistrationController extends Controller
 
     public function register(Request $request, $token)
     {
-        $user = User::where('token', $token)
+        $user = User::where('reset_token', $token)
             ->where('token_expiry', '>', now())
             ->first();
 
@@ -38,7 +38,7 @@ class RegistrationController extends Controller
         $user->update([
             'password' => Hash::make($request->password),
             'is_active' => 1,
-            'token' => null,
+            'reset_token' => null,
             'token_expiry' => null,
         ]);
 
