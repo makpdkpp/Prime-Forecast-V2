@@ -53,9 +53,12 @@ class UserManagementController extends Controller
             'role_id' => $request->role_id,
             'position_id' => $request->position_id,
             'is_active' => 0, // Inactive until user sets password
-            'token' => $token,
+            'reset_token' => $token,
             'token_expiry' => $tokenExpiry,
             'avatar_path' => null,
+            'two_factor_enabled' => 0,
+            'two_factor_code' => null,
+            'two_factor_expires_at' => null,
         ]);
 
         // Assign teams if provided
