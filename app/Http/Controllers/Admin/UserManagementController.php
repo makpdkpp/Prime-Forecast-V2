@@ -55,6 +55,7 @@ class UserManagementController extends Controller
             'is_active' => 0, // Inactive until user sets password
             'token' => $token,
             'token_expiry' => $tokenExpiry,
+            'avatar_path' => null,
         ]);
 
         // Assign teams if provided
