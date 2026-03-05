@@ -407,13 +407,6 @@
             },
             options: {
                 responsive: true,
-                onClick: function(evt, elements) {
-                    if (elements.length === 0) return;
-                    const idx = elements[0].index;
-                    const month = rawMonths[idx];
-                    const displayMonth = labels[idx];
-                    showChartDetail('month', month, 'ยอดขาย Win เดือน ' + displayMonth);
-                },
                 scales: {
                     y: {
                         beginAtZero: true,
@@ -963,23 +956,6 @@
             },
             options: {
                 responsive: true,
-                onClick: function(evt, elements) {
-                    if (elements.length === 0) return;
-                    const el = elements[0];
-                    const person = data[el.index];
-                    const dsIndex = el.datasetIndex;
-                    const userName = person.nname + ' ' + (person.surename || '');
-                    if (dsIndex === 0) {
-                        // Target — ไม่มี project detail, แสดง Forecast projects ของ user แทน
-                        showChartDetail('user_forecast', person.user_id, 'Forecast (อ้างอิง Target) ของ: ' + userName);
-                    } else if (dsIndex === 1) {
-                        // Forecast — ทุก project ล่าสุดของ user
-                        showChartDetail('user_forecast', person.user_id, 'Forecast ของ: ' + userName);
-                    } else if (dsIndex === 2) {
-                        // Win — เฉพาะ project ที่ WIN
-                        showChartDetail('user_win', person.user_id, 'Win ของ: ' + userName);
-                    }
-                },
                 scales: {
                     y: {
                         beginAtZero: true,
