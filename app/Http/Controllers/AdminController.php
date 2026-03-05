@@ -948,6 +948,8 @@ class AdminController extends Controller
             ]);
             
             DB::commit();
+
+            $this->flushAdminDashboardCache();
             
             return redirect()->route('admin.dashboard.table')->with('success', 'โอนข้อมูลเรียบร้อยแล้ว');
         } catch (\Exception $e) {
@@ -1049,6 +1051,36 @@ class AdminController extends Controller
         ]);
     }
     
+    private function flushAdminDashboardCache(): void
+    {
+        $years = array_merge(['all'], DB::table('transactional')
+            ->selectRaw('DISTINCT YEAR(contact_start_date) as y')
+            ->whereNotNull('contact_start_date')
+            ->pluck('y')
+            ->toArray());
+
+        $quarters = ['all', '1', '2', '3', '4'];
+
+        $prefixes = [
+            'cumulativeWin',
+            'sumByTeam',
+            'sumByPerson',
+            'saleStatus',
+            'saleStatusValue',
+            'topProducts',
+            'topCustomers',
+            'targetForecastWin',
+        ];
+
+        foreach ($prefixes as $prefix) {
+            foreach ($years as $y) {
+                foreach ($quarters as $q) {
+                    Cache::forget("dashboard:admin:{$prefix}:{$y}:{$q}");
+                }
+            }
+        }
+    }
+
     private function quarterDateRange($year, $quarter)
     {
         $y = (int) $year;
