@@ -417,8 +417,12 @@ class AdminController extends Controller
             // WIN-based charts: filter by wintrans.win_date (WIN step date)
             $this->appendYearSqlFilter($where, $params, $year, 'wintrans', 'win_date');
             $this->appendQuarterSqlFilter($where, $params, $year, $quarter, 'wintrans', 'win_date');
+        } else if ($type === 'user_forecast') {
+            // Forecast drill-down: filter by ts_latest.date to match dashboard Forecast query
+            $this->appendYearSqlFilter($where, $params, $year, 'ts_latest', 'date');
+            $this->appendQuarterSqlFilter($where, $params, $year, $quarter, 'ts_latest', 'date');
         } else {
-            // Forecast-based charts (user_forecast): filter by t.contact_start_date
+            // Other forecast-based charts: filter by t.contact_start_date
             $this->appendYearSqlFilter($where, $params, $year, 't');
             $this->appendQuarterSqlFilter($where, $params, $year, $quarter, 't');
         }
@@ -480,7 +484,18 @@ class AdminController extends Controller
                     $extraParams[] = $value2;
                 }
                 break;
-            case 'user_forecast': // Target/Forecast/Win — all transactions by user
+            case 'user_forecast': // Target/Forecast/Win — all transactions by user (filter by latest step date)
+                $extraJoin = "
+                    JOIN (
+                        SELECT ts.transac_id, ts.date
+                        FROM transactional_step ts
+                        WHERE (ts.transacstep_id, ts.transac_id) IN (
+                            SELECT MAX(ts2.transacstep_id), ts2.transac_id
+                            FROM transactional_step ts2
+                            GROUP BY ts2.transac_id
+                        )
+                    ) ts_latest ON ts_latest.transac_id = t.transac_id
+                ";
                 $extraWhere = " AND t.user_id = ?";
                 $extraParams[] = $value;
                 break;
@@ -948,6 +963,8 @@ class AdminController extends Controller
             ]);
             
             DB::commit();
+
+            $this->flushAdminDashboardCache();
             
             return redirect()->route('admin.dashboard.table')->with('success', 'โอนข้อมูลเรียบร้อยแล้ว');
         } catch (\Exception $e) {
@@ -1049,6 +1066,36 @@ class AdminController extends Controller
         ]);
     }
     
+    private function flushAdminDashboardCache(): void
+    {
+        $years = array_merge(['all'], DB::table('transactional')
+            ->selectRaw('DISTINCT YEAR(contact_start_date) as y')
+            ->whereNotNull('contact_start_date')
+            ->pluck('y')
+            ->toArray());
+
+        $quarters = ['all', '1', '2', '3', '4'];
+
+        $prefixes = [
+            'cumulativeWin',
+            'sumByTeam',
+            'sumByPerson',
+            'saleStatus',
+            'saleStatusValue',
+            'topProducts',
+            'topCustomers',
+            'targetForecastWin',
+        ];
+
+        foreach ($prefixes as $prefix) {
+            foreach ($years as $y) {
+                foreach ($quarters as $q) {
+                    Cache::forget("dashboard:admin:{$prefix}:{$y}:{$q}");
+                }
+            }
+        }
+    }
+
     private function quarterDateRange($year, $quarter)
     {
         $y = (int) $year;

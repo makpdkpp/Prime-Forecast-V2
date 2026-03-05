@@ -409,9 +409,10 @@
                 responsive: true,
                 onClick: function(evt, elements) {
                     if (elements.length === 0) return;
-                    const idx = elements[0].index;
-                    const month = rawMonths[idx];
-                    const displayMonth = labels[idx];
+                    const el = elements[0];
+                    if (el.datasetIndex === 1) return; // Target line — ไม่ต้อง drill-down
+                    const month = rawMonths[el.index];
+                    const displayMonth = labels[el.index];
                     showChartDetail('month', month, 'ยอดขาย Win เดือน ' + displayMonth);
                 },
                 scales: {
@@ -969,9 +970,12 @@
                     const person = data[el.index];
                     const dsIndex = el.datasetIndex;
                     const userName = person.nname + ' ' + (person.surename || '');
-                    const types = ['user_forecast', 'user_forecast', 'user_win'];
-                    const labels = ['Target/Forecast', 'Forecast', 'Win'];
-                    showChartDetail(types[dsIndex], person.user_id, labels[dsIndex] + ': ' + userName);
+                    if (dsIndex === 0) return; // Target — ไม่ต้อง drill-down
+                    if (dsIndex === 1) {
+                        showChartDetail('user_forecast', person.user_id, 'Forecast ของ: ' + userName);
+                    } else if (dsIndex === 2) {
+                        showChartDetail('user_win', person.user_id, 'Win ของ: ' + userName);
+                    }
                 },
                 scales: {
                     y: {
