@@ -969,9 +969,16 @@
                     const person = data[el.index];
                     const dsIndex = el.datasetIndex;
                     const userName = person.nname + ' ' + (person.surename || '');
-                    const types = ['user_forecast', 'user_forecast', 'user_win'];
-                    const labels = ['Target/Forecast', 'Forecast', 'Win'];
-                    showChartDetail(types[dsIndex], person.user_id, labels[dsIndex] + ': ' + userName);
+                    if (dsIndex === 0) {
+                        // Target — ไม่มี project detail, แสดง Forecast projects ของ user แทน
+                        showChartDetail('user_forecast', person.user_id, 'Forecast (อ้างอิง Target) ของ: ' + userName);
+                    } else if (dsIndex === 1) {
+                        // Forecast — ทุก project ล่าสุดของ user
+                        showChartDetail('user_forecast', person.user_id, 'Forecast ของ: ' + userName);
+                    } else if (dsIndex === 2) {
+                        // Win — เฉพาะ project ที่ WIN
+                        showChartDetail('user_win', person.user_id, 'Win ของ: ' + userName);
+                    }
                 },
                 scales: {
                     y: {
