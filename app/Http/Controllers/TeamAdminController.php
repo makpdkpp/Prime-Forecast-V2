@@ -633,6 +633,7 @@ class TeamAdminController extends Controller
         }
 
         $base = DB::table('transactional as t')
+            ->whereNull('t.deleted_at')
             ->leftJoin('company_catalog as c', 't.company_id', '=', 'c.company_id')
             ->leftJoin('product_group as pg', 't.Product_id', '=', 'pg.product_id')
             ->leftJoin('team_catalog as tc', 't.team_id', '=', 'tc.team_id')

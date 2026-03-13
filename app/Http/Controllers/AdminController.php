@@ -638,6 +638,7 @@ class AdminController extends Controller
         }
 
         $base = DB::table('transactional as t')
+            ->whereNull('t.deleted_at')
             ->leftJoin('company_catalog as c', 't.company_id', '=', 'c.company_id')
             ->leftJoin('product_group as pg', 't.Product_id', '=', 'pg.product_id')
             ->leftJoin('team_catalog as tc', 't.team_id', '=', 'tc.team_id')
@@ -897,7 +898,11 @@ class AdminController extends Controller
     public function deleteSales($id)
     {
         try {
-            $transaction = Transactional::findOrFail($id);
+            $transaction = Transactional::find($id);
+            if (!$transaction) {
+                return redirect()->route('admin.dashboard.table')
+                    ->with('error', 'รายการนี้ถูกลบไปแล้ว');
+            }
             
             // Delete related steps first
             DB::table('transactional_step')->where('transac_id', $id)->delete();
