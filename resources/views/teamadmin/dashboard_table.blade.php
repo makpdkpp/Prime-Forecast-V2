@@ -122,9 +122,6 @@
                             <th>กลุ่มสินค้า</th>
                             <th>ชื่อผู้ใช้</th>
                             <th>ทีม</th>
-                            <th>ผู้ติดต่อ</th>
-                            <th>เบอร์โทร</th>
-                            <th>อีเมล</th>
                             <th>หมายเหตุ</th>
                             <th>Action</th>
                         </tr>
@@ -278,9 +275,6 @@ $(function () {
             { data: 'product' },
             { data: 'user' },
             { data: 'team' },
-            { data: 'contact_person' },
-            { data: 'contact_phone' },
-            { data: 'contact_email' },
             { data: 'remark' },
             { data: 'action', orderable: false, searchable: false, className: 'text-center' }
         ],
