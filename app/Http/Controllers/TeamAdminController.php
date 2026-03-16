@@ -572,6 +572,12 @@ class TeamAdminController extends Controller
         $year = $request->get('year');
         $quarter = $request->get('quarter');
         $userId = $request->get('user_id');
+        $biddingUserId = $request->get('bidding_user_id');
+        $biddingDateFrom = $request->get('bidding_date_from');
+        $biddingDateTo = $request->get('bidding_date_to');
+        $contractUserId = $request->get('contract_user_id');
+        $contractDateFrom = $request->get('contract_date_from');
+        $contractDateTo = $request->get('contract_date_to');
         
         // Get available years
         $availableYears = Cache::remember('dashboard:teamadmin:table:availableYears', 120, function () {
@@ -601,7 +607,12 @@ class TeamAdminController extends Controller
                 ->get();
         }
 
-        return view('teamadmin.dashboard_table', compact('availableYears', 'availableUsers', 'year', 'quarter', 'userId', 'userTeams'));
+        return view('teamadmin.dashboard_table', compact(
+            'availableYears', 'availableUsers',
+            'year', 'quarter', 'userId', 'userTeams',
+            'biddingUserId', 'biddingDateFrom', 'biddingDateTo',
+            'contractUserId', 'contractDateFrom', 'contractDateTo'
+        ));
     }
 
     public function dashboardTableData(Request $request)
@@ -610,6 +621,12 @@ class TeamAdminController extends Controller
         $year = $request->get('year');
         $quarter = $request->get('quarter');
         $userId = $request->get('user_id');
+        $biddingUserId = $request->get('bidding_user_id');
+        $biddingDateFrom = $request->get('bidding_date_from');
+        $biddingDateTo = $request->get('bidding_date_to');
+        $contractUserId = $request->get('contract_user_id');
+        $contractDateFrom = $request->get('contract_date_from');
+        $contractDateTo = $request->get('contract_date_to');
 
         $userTeams = DB::table('transactional_team')
             ->where('user_id', $user->user_id)
@@ -649,6 +666,24 @@ class TeamAdminController extends Controller
         $this->applyQuarterFilterToQuery($base, $year, $quarter, 't.contact_start_date');
         if ($userId) {
             $base->where('t.user_id', $userId);
+        }
+        if ($biddingUserId) {
+            $base->where('t.user_id', $biddingUserId);
+        }
+        if ($biddingDateFrom) {
+            $base->where('t.date_of_closing_of_sale', '>=', $biddingDateFrom);
+        }
+        if ($biddingDateTo) {
+            $base->where('t.date_of_closing_of_sale', '<=', $biddingDateTo);
+        }
+        if ($contractUserId) {
+            $base->where('t.user_id', $contractUserId);
+        }
+        if ($contractDateFrom) {
+            $base->where('t.sales_can_be_close', '>=', $contractDateFrom);
+        }
+        if ($contractDateTo) {
+            $base->where('t.sales_can_be_close', '<=', $contractDateTo);
         }
 
         $total = (clone $base)->count('t.transac_id');
