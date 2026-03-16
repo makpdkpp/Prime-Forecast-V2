@@ -1,0 +1,262 @@
+@extends('adminlte::page')
+
+@section('title', 'Contract Report | PrimeForecast')
+
+@section('content_header')
+    <h1>รายงานวันเซ็นสัญญา</h1>
+@stop
+
+@section('content')
+<div class="row">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">ฟิลเตอร์ข้อมูล</h3>
+                <div class="card-tools">
+                    <button type="button" class="btn btn-tool" data-card-widget="collapse">
+                        <i class="fas fa-minus"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                <form id="reportFilterForm">
+                    <div class="row">
+                        <div class="col-md-3">
+                            <div class="form-group">
+                                <label for="user_id">ชื่อผู้ใช้</label>
+                                <select name="user_id" id="user_id" class="form-control">
+                                    <option value="">ทุกคน</option>
+                                    @foreach($availableUsers as $user)
+                                        <option value="{{ $user->user_id }}">
+                                            {{ trim(($user->nname ?? '') . ' ' . ($user->surename ?? '')) }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="form-group">
+                                <label for="date_from">วันที่เริ่มต้น</label>
+                                <input type="text" name="date_from" id="date_from" class="form-control flatpickr" placeholder="dd/mm/yyyy">
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="form-group">
+                                <label for="date_to">วันที่สิ้นสุด</label>
+                                <input type="text" name="date_to" id="date_to" class="form-control flatpickr" placeholder="dd/mm/yyyy">
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="form-group">
+                                <label>&nbsp;</label><br>
+                                <button type="button" id="filterBtn" class="btn btn-primary">
+                                    <i class="fas fa-search"></i> กรองข้อมูล
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">ผลลัพธ์รายงาน</h3>
+                <div class="card-tools">
+                    <button type="button" id="exportExcel" class="btn btn-success btn-sm">
+                        <i class="fas fa-file-excel"></i> Export Excel
+                    </button>
+                    <button type="button" id="exportPdf" class="btn btn-danger btn-sm ml-2">
+                        <i class="fas fa-file-pdf"></i> Export PDF
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table id="reportTable" class="table table-bordered table-striped">
+                        <thead>
+                            <tr>
+                                <th>ชื่อโครงการ</th>
+                                <th>หน่วยงาน/บริษัท</th>
+                                <th>มูลค่า (฿)</th>
+                                <th>วันเซ็นสัญญา</th>
+                                <th>ชื่อผู้รับผิดชอบ</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Data populated by DataTables -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+@stop
+
+@section('js')
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.7/js/dataTables.bootstrap4.min.js"></script>
+
+<script>
+$(function () {
+    // Flatpickr for date inputs
+    flatpickr('.flatpickr', {
+        dateFormat: 'd/m/Y',
+        locale: {
+            firstDayOfWeek: 1,
+            weekdays: {
+                shorthand: ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส'],
+                longhand: ['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์']
+            },
+            months: {
+                shorthand: ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'],
+                longhand: ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม']
+            }
+        },
+        onChange: function(selectedDates, dateStr, instance) {
+            if (selectedDates.length > 0) {
+                const d = selectedDates[0];
+                const day = String(d.getDate()).padStart(2, '0');
+                const month = String(d.getMonth() + 1).padStart(2, '0');
+                const thaiYear = d.getFullYear() + 543;
+                const isoDate = d.getFullYear() + '-' + month + '-' + day;
+                instance.input.value = day + '/' + month + '/' + thaiYear;
+                $(instance.input).data('isoValue', isoDate);
+            }
+        }
+    });
+
+    // DataTables
+    const table = $("#reportTable").DataTable({
+        "processing": true,
+        "serverSide": false,
+        "responsive": false,
+        "autoWidth": false,
+        "language": { "url": "//cdn.datatables.net/plug-ins/1.13.7/i18n/th.json" },
+        "data": [],
+        "columns": [
+            { data: 'project_name' },
+            { data: 'company_name' },
+            { data: 'value' },
+            { data: 'contract_date' },
+            { data: 'user_name' }
+        ]
+    });
+
+    // Load data function
+    function loadData() {
+        const formData = $('#reportFilterForm').serializeArray();
+        const params = {};
+        
+        formData.forEach(function(item) {
+            if (item.value) {
+                if (item.name === 'date_from' || item.name === 'date_to') {
+                    params[item.name] = $('input[name="' + item.name + '"]').data('isoValue');
+                } else {
+                    params[item.name] = item.value;
+                }
+            }
+        });
+
+        $.post('{{ route("admin.reports.contract.data") }}', params, function(response) {
+            table.clear().rows.add(response.data).draw();
+        });
+    }
+
+    // Filter button click
+    $('#filterBtn').on('click', function() {
+        loadData();
+    });
+
+    // Export functions
+    $('#exportExcel').on('click', function() {
+        const formData = $('#reportFilterForm').serializeArray();
+        const params = { export_type: 'excel' };
+        
+        formData.forEach(function(item) {
+            if (item.value) {
+                if (item.name === 'date_from' || item.name === 'date_to') {
+                    params[item.name] = $('input[name="' + item.name + '"]').data('isoValue');
+                } else {
+                    params[item.name] = item.value;
+                }
+            }
+        });
+
+        const form = $('<form>', {
+            method: 'POST',
+            action: '{{ route("admin.reports.contract.data") }}'
+        });
+
+        // Add CSRF token
+        form.append($('<input>', {
+            type: 'hidden',
+            name: '_token',
+            value: '{{ csrf_token() }}'
+        }));
+
+        Object.keys(params).forEach(function(key) {
+            form.append($('<input>', {
+                type: 'hidden',
+                name: key,
+                value: params[key]
+            }));
+        });
+
+        $('body').append(form);
+        form.submit();
+        form.remove();
+    });
+
+    $('#exportPdf').on('click', function() {
+        const formData = $('#reportFilterForm').serializeArray();
+        const params = { export_type: 'pdf' };
+        
+        formData.forEach(function(item) {
+            if (item.value) {
+                if (item.name === 'date_from' || item.name === 'date_to') {
+                    params[item.name] = $('input[name="' + item.name + '"]').data('isoValue');
+                } else {
+                    params[item.name] = item.value;
+                }
+            }
+        });
+
+        const form = $('<form>', {
+            method: 'POST',
+            action: '{{ route("admin.reports.contract.data") }}'
+        });
+
+        // Add CSRF token
+        form.append($('<input>', {
+            type: 'hidden',
+            name: '_token',
+            value: '{{ csrf_token() }}'
+        }));
+
+        Object.keys(params).forEach(function(key) {
+            form.append($('<input>', {
+                type: 'hidden',
+                name: key,
+                value: params[key]
+            }));
+        });
+
+        $('body').append(form);
+        form.submit();
+        form.remove();
+    });
+});
+</script>
+@stop
+
+@section('css')
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+<link rel="stylesheet" href="https://cdn.datatables.net/1.13.7/css/dataTables.bootstrap4.min.css">
+@stop

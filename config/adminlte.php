@@ -336,6 +336,21 @@ return [
             ],
         ],
         [
+            'text' => 'Reports',
+            'icon' => 'fas fa-file-alt',
+            'can' => 'admin',
+            'submenu' => [
+                [
+                    'text' => 'วันยื่น Bidding',
+                    'url' => 'admin/reports/bidding',
+                ],
+                [
+                    'text' => 'วันเซ็นสัญญา',
+                    'url' => 'admin/reports/contract',
+                ],
+            ],
+        ],
+        [
             'text' => 'จัดการข้อมูล',
             'icon' => 'fas fa-folder-open',
             'can' => 'admin',

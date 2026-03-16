@@ -7,6 +7,11 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Cache;
 use App\Models\Transactional;
 use App\Models\User;
+use App\Exports\BiddingReportExport;
+use App\Exports\ContractReportExport;
+use App\Reports\BiddingReportPdf;
+use App\Reports\ContractReportPdf;
+use Maatwebsite\Excel\Facades\Excel;
 
 class AdminController extends Controller
 {
@@ -1238,5 +1243,143 @@ class AdminController extends Controller
         $whereClause = !empty($where) ? 'WHERE ' . implode(' AND ', $where) : '';
 
         return ['where' => $whereClause, 'params' => $params];
+    }
+
+    // Reports Section
+    public function reportsIndex()
+    {
+        return view('admin.reports.index');
+    }
+
+    public function reportBidding(Request $request)
+    {
+        $availableUsers = DB::table('user')
+            ->select('user_id', 'nname', 'surename')
+            ->where('role_id', 3)
+            ->orderBy('nname')
+            ->orderBy('surename')
+            ->get();
+
+        return view('admin.reports.bidding', compact('availableUsers'));
+    }
+
+    public function reportBiddingData(Request $request)
+    {
+        $userId = $request->get('user_id');
+        $dateFrom = $request->get('date_from');
+        $dateTo = $request->get('date_to');
+        $exportType = $request->get('export_type'); // excel or pdf
+
+        if ($exportType === 'excel') {
+            return Excel::download(new BiddingReportExport($userId, $dateFrom, $dateTo), 'รายงานวันยื่น_Bidding_' . date('Y-m-d') . '.xlsx');
+        } elseif ($exportType === 'pdf') {
+            $pdf = new BiddingReportPdf($userId, $dateFrom, $dateTo);
+            return $pdf->generate();
+        }
+
+        // Return data for DataTables
+        $query = DB::table('transactional as t')
+            ->leftJoin('company_catalog as c', 't.company_id', '=', 'c.company_id')
+            ->leftJoin('user as u', 't.user_id', '=', 'u.user_id')
+            ->select([
+                't.Product_detail as project_name',
+                'c.company as company_name',
+                't.product_value as value',
+                't.date_of_closing_of_sale as bidding_date',
+                DB::raw("CONCAT(u.nname, ' ', u.surename) as user_name")
+            ])
+            ->whereNotNull('t.date_of_closing_of_sale');
+
+        if ($userId) {
+            $query->where('t.user_id', $userId);
+        }
+
+        if ($dateFrom) {
+            $query->where('t.date_of_closing_of_sale', '>=', $dateFrom);
+        }
+
+        if ($dateTo) {
+            $query->where('t.date_of_closing_of_sale', '<=', $dateTo);
+        }
+
+        $data = $query->orderBy('t.date_of_closing_of_sale', 'desc')->get();
+
+        return response()->json([
+            'data' => $data->map(function ($item) {
+                return [
+                    'project_name' => $item->project_name ?? '-',
+                    'company_name' => $item->company_name ?? '-',
+                    'value' => number_format($item->value ?? 0, 2),
+                    'bidding_date' => $item->bidding_date ? \Carbon\Carbon::parse($item->bidding_date)->format('d/m/Y') : '-',
+                    'user_name' => $item->user_name ?? '-'
+                ];
+            })
+        ]);
+    }
+
+    public function reportContract(Request $request)
+    {
+        $availableUsers = DB::table('user')
+            ->select('user_id', 'nname', 'surename')
+            ->where('role_id', 3)
+            ->orderBy('nname')
+            ->orderBy('surename')
+            ->get();
+
+        return view('admin.reports.contract', compact('availableUsers'));
+    }
+
+    public function reportContractData(Request $request)
+    {
+        $userId = $request->get('user_id');
+        $dateFrom = $request->get('date_from');
+        $dateTo = $request->get('date_to');
+        $exportType = $request->get('export_type'); // excel or pdf
+
+        if ($exportType === 'excel') {
+            return Excel::download(new ContractReportExport($userId, $dateFrom, $dateTo), 'รายงานวันเซ็นสัญญา_' . date('Y-m-d') . '.xlsx');
+        } elseif ($exportType === 'pdf') {
+            $pdf = new ContractReportPdf($userId, $dateFrom, $dateTo);
+            return $pdf->generate();
+        }
+
+        // Return data for DataTables
+        $query = DB::table('transactional as t')
+            ->leftJoin('company_catalog as c', 't.company_id', '=', 'c.company_id')
+            ->leftJoin('user as u', 't.user_id', '=', 'u.user_id')
+            ->select([
+                't.Product_detail as project_name',
+                'c.company as company_name',
+                't.product_value as value',
+                't.sales_can_be_close as contract_date',
+                DB::raw("CONCAT(u.nname, ' ', u.surename) as user_name")
+            ])
+            ->whereNotNull('t.sales_can_be_close');
+
+        if ($userId) {
+            $query->where('t.user_id', $userId);
+        }
+
+        if ($dateFrom) {
+            $query->where('t.sales_can_be_close', '>=', $dateFrom);
+        }
+
+        if ($dateTo) {
+            $query->where('t.sales_can_be_close', '<=', $dateTo);
+        }
+
+        $data = $query->orderBy('t.sales_can_be_close', 'desc')->get();
+
+        return response()->json([
+            'data' => $data->map(function ($item) {
+                return [
+                    'project_name' => $item->project_name ?? '-',
+                    'company_name' => $item->company_name ?? '-',
+                    'value' => number_format($item->value ?? 0, 2),
+                    'contract_date' => $item->contract_date ? \Carbon\Carbon::parse($item->contract_date)->format('d/m/Y') : '-',
+                    'user_name' => $item->user_name ?? '-'
+                ];
+            })
+        ]);
     }
 }
