@@ -32,16 +32,19 @@
                 <div class="card-header py-2">
                     <h3 class="card-title"><i class="fas fa-filter"></i> กรองข้อมูล</h3>
                     <div class="card-tools">
-                        @if(request('year') || request('quarter'))
+                        @if(request('year') || request('quarter') || request('bidding_date_from') || request('bidding_date_to') || request('contract_date_from') || request('contract_date_to'))
+                            @if(request('year') || request('quarter'))
                             <span class="badge badge-info mr-2">
-                                @if(request('year'))
-                                    ปี {{ request('year') + 543 }}
-                                @endif
-                                @if(request('quarter'))
-                                    @if(request('year')) / @endif
-                                    Q{{ request('quarter') }}
-                                @endif
+                                @if(request('year'))ปี {{ request('year') + 543 }}@endif
+                                @if(request('quarter'))@if(request('year')) / @endifQ{{ request('quarter') }}@endif
                             </span>
+                            @endif
+                            @if(request('bidding_date_from') || request('bidding_date_to') || request('bidding_user_id'))
+                            <span class="badge badge-warning mr-2"><i class="fas fa-gavel"></i> Bidding filter</span>
+                            @endif
+                            @if(request('contract_date_from') || request('contract_date_to') || request('contract_user_id'))
+                            <span class="badge badge-success mr-2"><i class="fas fa-file-signature"></i> สัญญา filter</span>
+                            @endif
                         @endif
                         <button type="button" class="btn btn-tool" data-card-widget="collapse">
                             <i class="fas fa-plus"></i>
@@ -83,6 +86,73 @@
                                     @endforeach
                                 </select>
                             </div>
+                        </div>
+
+                        {{-- Filter: วันยื่น Bidding --}}
+                        <div class="row align-items-end mt-2">
+                            <div class="col-12"><small class="text-muted font-weight-bold"><i class="fas fa-gavel"></i> กรองวันยื่น Bidding</small></div>
+                            <div class="col-md-3">
+                                <label class="mb-1"><small>ชื่อเซล:</small></label>
+                                <select name="bidding_user_id" class="form-control form-control-sm">
+                                    <option value="">ทุกคน</option>
+                                    @foreach($availableUsers as $u)
+                                        <option value="{{ $u->user_id }}" {{ (string)request('bidding_user_id') === (string)$u->user_id ? 'selected' : '' }}>
+                                            {{ trim(($u->nname ?? '') . ' ' . ($u->surename ?? '')) }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <label class="mb-1"><small>วันเริ่ม:</small></label>
+                                <input type="text" name="bidding_date_from" id="bidding_date_from"
+                                    class="form-control form-control-sm flatpickr-filter"
+                                    placeholder="dd/mm/yyyy"
+                                    value="{{ request('bidding_date_from') ? \Carbon\Carbon::parse(request('bidding_date_from'))->format('d/m/') . (\Carbon\Carbon::parse(request('bidding_date_from'))->year + 543) : '' }}"
+                                    autocomplete="off" readonly>
+                            </div>
+                            <div class="col-md-2">
+                                <label class="mb-1"><small>วันสิ้นสุด:</small></label>
+                                <input type="text" name="bidding_date_to" id="bidding_date_to"
+                                    class="form-control form-control-sm flatpickr-filter"
+                                    placeholder="dd/mm/yyyy"
+                                    value="{{ request('bidding_date_to') ? \Carbon\Carbon::parse(request('bidding_date_to'))->format('d/m/') . (\Carbon\Carbon::parse(request('bidding_date_to'))->year + 543) : '' }}"
+                                    autocomplete="off" readonly>
+                            </div>
+                        </div>
+
+                        {{-- Filter: วันเซ็นสัญญา --}}
+                        <div class="row align-items-end mt-2">
+                            <div class="col-12"><small class="text-muted font-weight-bold"><i class="fas fa-file-signature"></i> กรองวันเซ็นสัญญา</small></div>
+                            <div class="col-md-3">
+                                <label class="mb-1"><small>ชื่อเซล:</small></label>
+                                <select name="contract_user_id" class="form-control form-control-sm">
+                                    <option value="">ทุกคน</option>
+                                    @foreach($availableUsers as $u)
+                                        <option value="{{ $u->user_id }}" {{ (string)request('contract_user_id') === (string)$u->user_id ? 'selected' : '' }}>
+                                            {{ trim(($u->nname ?? '') . ' ' . ($u->surename ?? '')) }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <label class="mb-1"><small>วันเริ่ม:</small></label>
+                                <input type="text" name="contract_date_from" id="contract_date_from"
+                                    class="form-control form-control-sm flatpickr-filter"
+                                    placeholder="dd/mm/yyyy"
+                                    value="{{ request('contract_date_from') ? \Carbon\Carbon::parse(request('contract_date_from'))->format('d/m/') . (\Carbon\Carbon::parse(request('contract_date_from'))->year + 543) : '' }}"
+                                    autocomplete="off" readonly>
+                            </div>
+                            <div class="col-md-2">
+                                <label class="mb-1"><small>วันสิ้นสุด:</small></label>
+                                <input type="text" name="contract_date_to" id="contract_date_to"
+                                    class="form-control form-control-sm flatpickr-filter"
+                                    placeholder="dd/mm/yyyy"
+                                    value="{{ request('contract_date_to') ? \Carbon\Carbon::parse(request('contract_date_to'))->format('d/m/') . (\Carbon\Carbon::parse(request('contract_date_to'))->year + 543) : '' }}"
+                                    autocomplete="off" readonly>
+                            </div>
+                        </div>
+
+                        <div class="row mt-2">
                             <div class="col-md-2">
                                 <button type="submit" class="btn btn-primary btn-sm btn-block" id="tableFilterBtn">
                                     <span id="tableFilterBtnText"><i class="fas fa-search"></i> กรอง</span>
@@ -235,6 +305,7 @@
 @stop
 
 @section('js')
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 <script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.7/js/dataTables.bootstrap4.min.js"></script>
 <script src="https://cdn.datatables.net/responsive/2.5.0/js/dataTables.responsive.min.js"></script>
@@ -263,6 +334,12 @@ $(function () {
                 d.year = $('select[name="year"]').val() || '{{ $year }}';
                 d.quarter = $('select[name="quarter"]').val() || '{{ $quarter }}';
                 d.user_id = $('select[name="user_id"]').val() || '{{ $userId }}';
+                d.bidding_user_id = $('select[name="bidding_user_id"]').val() || '{{ $biddingUserId }}';
+                d.bidding_date_from = $('input[name="bidding_date_from"]').data('isoValue') || '{{ $biddingDateFrom }}';
+                d.bidding_date_to = $('input[name="bidding_date_to"]').data('isoValue') || '{{ $biddingDateTo }}';
+                d.contract_user_id = $('select[name="contract_user_id"]').val() || '{{ $contractUserId }}';
+                d.contract_date_from = $('input[name="contract_date_from"]').data('isoValue') || '{{ $contractDateFrom }}';
+                d.contract_date_to = $('input[name="contract_date_to"]').data('isoValue') || '{{ $contractDateTo }}';
             }
         },
         "columns": [
@@ -377,7 +454,40 @@ $(function () {
         }
     }
 
+    // Flatpickr for filter date inputs
+    flatpickr('.flatpickr-filter', {
+        dateFormat: 'd/m/Y',
+        locale: {
+            firstDayOfWeek: 1,
+            weekdays: {
+                shorthand: ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส'],
+                longhand: ['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์']
+            },
+            months: {
+                shorthand: ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'],
+                longhand: ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม']
+            }
+        },
+        onChange: function(selectedDates, dateStr, instance) {
+            if (selectedDates.length > 0) {
+                const d = selectedDates[0];
+                const day = String(d.getDate()).padStart(2, '0');
+                const month = String(d.getMonth() + 1).padStart(2, '0');
+                const thaiYear = d.getFullYear() + 543;
+                const isoDate = d.getFullYear() + '-' + month + '-' + day;
+                instance.input.value = day + '/' + month + '/' + thaiYear;
+                $(instance.input).data('isoValue', isoDate);
+            }
+        }
+    });
+
+    // Before submitting, replace Thai date display values with ISO dates
     $('#tableFilterForm').on('submit', function () {
+        ['bidding_date_from','bidding_date_to','contract_date_from','contract_date_to'].forEach(function(name) {
+            var input = $('input[name="' + name + '"]');
+            var iso = input.data('isoValue');
+            if (iso) input.val(iso);
+        });
         $('#tableFilterBtn').prop('disabled', true);
         $('#tableFilterBtnText').text('กำลังกรอง...');
         $('#tableFilterBtnSpinner').show();
@@ -387,6 +497,7 @@ $(function () {
 @stop
 
 @section('css')
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
 <link rel="stylesheet" href="https://cdn.datatables.net/1.13.7/css/dataTables.bootstrap4.min.css">
 <link rel="stylesheet" href="https://cdn.datatables.net/responsive/2.5.0/css/responsive.bootstrap4.min.css">
 <link rel="stylesheet" href="https://cdn.datatables.net/buttons/2.4.2/css/buttons.bootstrap4.min.css">
