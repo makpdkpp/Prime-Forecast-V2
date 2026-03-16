@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -18,6 +19,7 @@ class MasterDataController extends Controller
     protected $viewPath;
     protected $routeName;
     protected $title;
+    protected $cacheKey;
 
     public function index()
     {
@@ -50,6 +52,10 @@ class MasterDataController extends Controller
             $this->nameField => $request->input($this->nameField),
         ]);
 
+        if ($this->cacheKey) {
+            Cache::forget($this->cacheKey);
+        }
+
         return redirect()->route("{$this->routeName}.index")->with('success', "เพิ่ม{$this->title}เรียบร้อยแล้ว");
     }
 
@@ -77,12 +83,21 @@ class MasterDataController extends Controller
                 $this->nameField => $request->input($this->nameField),
             ]);
 
+        if ($this->cacheKey) {
+            Cache::forget($this->cacheKey);
+        }
+
         return redirect()->route("{$this->routeName}.index")->with('success', "อัพเดท{$this->title}เรียบร้อยแล้ว");
     }
 
     public function destroy($id)
     {
         DB::table($this->table)->where($this->primaryKey, $id)->delete();
+
+        if ($this->cacheKey) {
+            Cache::forget($this->cacheKey);
+        }
+
         return redirect()->route("{$this->routeName}.index")->with('success', "ลบ{$this->title}เรียบร้อยแล้ว");
     }
 }

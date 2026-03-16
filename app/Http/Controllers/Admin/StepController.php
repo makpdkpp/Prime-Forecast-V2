@@ -10,4 +10,5 @@ class StepController extends MasterDataController
     protected $viewPath = 'admin.master.generic';
     protected $routeName = 'admin.steps';
     protected $title = 'ขั้นตอนการขาย';
+    protected $cacheKey = 'steps_list';
 }

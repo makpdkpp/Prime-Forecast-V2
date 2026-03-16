@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 class CompanyController extends Controller
@@ -37,6 +38,8 @@ class CompanyController extends Controller
             'Industry_id' => $request->Industry_id,
         ]);
 
+        Cache::forget('companies_list');
+
         return redirect()->route('admin.companies.index')->with('success', 'เพิ่มข้อมูลบริษัทเรียบร้อยแล้ว');
     }
 
@@ -62,12 +65,17 @@ class CompanyController extends Controller
                 'Industry_id' => $request->Industry_id,
             ]);
 
+        Cache::forget('companies_list');
+
         return redirect()->route('admin.companies.index')->with('success', 'อัพเดทข้อมูลบริษัทเรียบร้อยแล้ว');
     }
 
     public function destroy($id)
     {
         DB::table('company_catalog')->where('company_id', $id)->delete();
+
+        Cache::forget('companies_list');
+
         return redirect()->route('admin.companies.index')->with('success', 'ลบข้อมูลบริษัทเรียบร้อยแล้ว');
     }
 }
