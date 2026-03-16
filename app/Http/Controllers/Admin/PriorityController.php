@@ -10,4 +10,5 @@ class PriorityController extends MasterDataController
     protected $viewPath = 'admin.master.generic';
     protected $routeName = 'admin.priorities';
     protected $title = 'โอกาสการชนะ';
+    protected $cacheKey = 'priorities_list';
 }

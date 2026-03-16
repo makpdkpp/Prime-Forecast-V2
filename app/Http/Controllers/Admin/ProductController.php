@@ -10,4 +10,5 @@ class ProductController extends MasterDataController
     protected $viewPath = 'admin.master.generic';
     protected $routeName = 'admin.products';
     protected $title = 'กลุ่มสินค้า';
+    protected $cacheKey = 'products_list';
 }

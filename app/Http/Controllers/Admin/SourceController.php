@@ -10,4 +10,5 @@ class SourceController extends MasterDataController
     protected $viewPath = 'admin.master.generic';
     protected $routeName = 'admin.sources';
     protected $title = 'ที่มาของงบประมาณ';
+    protected $cacheKey = 'sources_list';
 }
