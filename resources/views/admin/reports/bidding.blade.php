@@ -105,6 +105,11 @@
 
 <script>
 $(function () {
+    // Setup CSRF for all AJAX
+    $.ajaxSetup({
+        headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' }
+    });
+
     // Flatpickr for date inputs
     flatpickr('.flatpickr', {
         dateFormat: 'd/m/Y',
@@ -138,7 +143,7 @@ $(function () {
         "serverSide": false,
         "responsive": false,
         "autoWidth": false,
-        "language": { "url": "//cdn.datatables.net/plug-ins/1.13.7/i18n/th.json" },
+        "language": { "url": "https://cdn.datatables.net/plug-ins/1.13.7/i18n/th.json" },
         "data": [],
         "columns": [
             { data: 'project_name' },
@@ -151,18 +156,11 @@ $(function () {
 
     // Load data function
     function loadData() {
-        const formData = $('#reportFilterForm').serializeArray();
-        const params = {};
-        
-        formData.forEach(function(item) {
-            if (item.value) {
-                if (item.name === 'date_from' || item.name === 'date_to') {
-                    params[item.name] = $('input[name="' + item.name + '"]').data('isoValue');
-                } else {
-                    params[item.name] = item.value;
-                }
-            }
-        });
+        var params = {
+            user_id: $('#user_id').val(),
+            date_from: $('input[name="date_from"]').data('isoValue') || '',
+            date_to: $('input[name="date_to"]').data('isoValue') || ''
+        };
 
         $.post('{{ route("admin.reports.bidding.data") }}', params, function(response) {
             table.clear().rows.add(response.data).draw();
