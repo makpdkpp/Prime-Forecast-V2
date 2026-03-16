@@ -35,8 +35,8 @@
                         @if(request('year') || request('quarter') || request('bidding_date_from') || request('bidding_date_to') || request('contract_date_from') || request('contract_date_to'))
                             @if(request('year') || request('quarter'))
                             <span class="badge badge-info mr-2">
-                                @if(request('year'))ปี {{ request('year') + 543 }}@endif
-                                @if(request('quarter'))@if(request('year')) / @endifQ{{ request('quarter') }}@endif
+                                {{ request('year') ? 'ปี ' . (request('year') + 543) : '' }}
+                                {{ request('quarter') ? (request('year') ? ' / ' : '') . 'Q' . request('quarter') : '' }}
                             </span>
                             @endif
                             @if(request('bidding_date_from') || request('bidding_date_to') || request('bidding_user_id'))
@@ -107,7 +107,7 @@
                                 <input type="text" name="bidding_date_from" id="bidding_date_from"
                                     class="form-control form-control-sm flatpickr-filter"
                                     placeholder="dd/mm/yyyy"
-                                    value="{{ request('bidding_date_from') ? \Carbon\Carbon::parse(request('bidding_date_from'))->format('d/m/') . (\Carbon\Carbon::parse(request('bidding_date_from'))->year + 543) : '' }}"
+                                    data-iso="{{ request('bidding_date_from') ?? '' }}"
                                     autocomplete="off" readonly>
                             </div>
                             <div class="col-md-2">
@@ -115,7 +115,7 @@
                                 <input type="text" name="bidding_date_to" id="bidding_date_to"
                                     class="form-control form-control-sm flatpickr-filter"
                                     placeholder="dd/mm/yyyy"
-                                    value="{{ request('bidding_date_to') ? \Carbon\Carbon::parse(request('bidding_date_to'))->format('d/m/') . (\Carbon\Carbon::parse(request('bidding_date_to'))->year + 543) : '' }}"
+                                    data-iso="{{ request('bidding_date_to') ?? '' }}"
                                     autocomplete="off" readonly>
                             </div>
                         </div>
@@ -139,7 +139,7 @@
                                 <input type="text" name="contract_date_from" id="contract_date_from"
                                     class="form-control form-control-sm flatpickr-filter"
                                     placeholder="dd/mm/yyyy"
-                                    value="{{ request('contract_date_from') ? \Carbon\Carbon::parse(request('contract_date_from'))->format('d/m/') . (\Carbon\Carbon::parse(request('contract_date_from'))->year + 543) : '' }}"
+                                    data-iso="{{ request('contract_date_from') ?? '' }}"
                                     autocomplete="off" readonly>
                             </div>
                             <div class="col-md-2">
@@ -147,7 +147,7 @@
                                 <input type="text" name="contract_date_to" id="contract_date_to"
                                     class="form-control form-control-sm flatpickr-filter"
                                     placeholder="dd/mm/yyyy"
-                                    value="{{ request('contract_date_to') ? \Carbon\Carbon::parse(request('contract_date_to'))->format('d/m/') . (\Carbon\Carbon::parse(request('contract_date_to'))->year + 543) : '' }}"
+                                    data-iso="{{ request('contract_date_to') ?? '' }}"
                                     autocomplete="off" readonly>
                             </div>
                         </div>
@@ -455,38 +455,57 @@ $(function () {
     }
 
     // Flatpickr for filter date inputs
-    flatpickr('.flatpickr-filter', {
-        dateFormat: 'd/m/Y',
-        locale: {
-            firstDayOfWeek: 1,
-            weekdays: {
-                shorthand: ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส'],
-                longhand: ['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์']
-            },
-            months: {
-                shorthand: ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'],
-                longhand: ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม']
-            }
+    var fpLocale = {
+        firstDayOfWeek: 1,
+        weekdays: {
+            shorthand: ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส'],
+            longhand: ['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์']
         },
-        onChange: function(selectedDates, dateStr, instance) {
-            if (selectedDates.length > 0) {
-                const d = selectedDates[0];
-                const day = String(d.getDate()).padStart(2, '0');
-                const month = String(d.getMonth() + 1).padStart(2, '0');
-                const thaiYear = d.getFullYear() + 543;
-                const isoDate = d.getFullYear() + '-' + month + '-' + day;
-                instance.input.value = day + '/' + month + '/' + thaiYear;
-                $(instance.input).data('isoValue', isoDate);
+        months: {
+            shorthand: ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'],
+            longhand: ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม']
+        }
+    };
+
+    function thaiDisplay(dateObj) {
+        var day = String(dateObj.getDate()).padStart(2, '0');
+        var month = String(dateObj.getMonth() + 1).padStart(2, '0');
+        return day + '/' + month + '/' + (dateObj.getFullYear() + 543);
+    }
+
+    function isoStr(dateObj) {
+        var day = String(dateObj.getDate()).padStart(2, '0');
+        var month = String(dateObj.getMonth() + 1).padStart(2, '0');
+        return dateObj.getFullYear() + '-' + month + '-' + day;
+    }
+
+    document.querySelectorAll('.flatpickr-filter').forEach(function(el) {
+        var isoVal = el.getAttribute('data-iso') || '';
+        var fp = flatpickr(el, {
+            dateFormat: 'Y-m-d',
+            locale: fpLocale,
+            defaultDate: isoVal || null,
+            onChange: function(selectedDates, dateStr, instance) {
+                if (selectedDates.length > 0) {
+                    instance.input.setAttribute('data-iso', isoStr(selectedDates[0]));
+                    instance.input.value = thaiDisplay(selectedDates[0]);
+                }
             }
+        });
+        // Set display value after init if defaultDate was set
+        if (isoVal && fp.selectedDates.length > 0) {
+            el.value = thaiDisplay(fp.selectedDates[0]);
         }
     });
 
-    // Before submitting, replace Thai date display values with ISO dates
+    // Before submitting, replace display values with ISO dates
     $('#tableFilterForm').on('submit', function () {
         ['bidding_date_from','bidding_date_to','contract_date_from','contract_date_to'].forEach(function(name) {
-            var input = $('input[name="' + name + '"]');
-            var iso = input.data('isoValue');
-            if (iso) input.val(iso);
+            var input = document.querySelector('input[name="' + name + '"]');
+            if (input) {
+                var iso = input.getAttribute('data-iso');
+                if (iso) input.value = iso;
+            }
         });
         $('#tableFilterBtn').prop('disabled', true);
         $('#tableFilterBtnText').text('กำลังกรอง...');
