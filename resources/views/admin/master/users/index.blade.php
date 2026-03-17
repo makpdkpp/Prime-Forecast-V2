@@ -34,7 +34,7 @@
             <table id="dataTable" class="table table-bordered table-striped">
                 <thead>
                     <tr>
-                        <th style="width:60px;">ลำดับ</th>
+                        <th style="width:60px; text-align:center;">ลำดับ</th>
                         <th>ชื่อ-นามสกุล</th>
                         <th>Email</th>
                         <th>Role</th>
@@ -47,7 +47,7 @@
                 <tbody>
                     @foreach($users as $user)
                     <tr>
-                        <td>{{ $loop->iteration }}</td>
+                        <td style="text-align:center;">{{ $loop->iteration }}</td>
                         <td>{{ $user->nname }} {{ $user->surename }}</td>
                         <td>{{ $user->email }}</td>
                         <td>{{ $user->role->role ?? '-' }}</td>

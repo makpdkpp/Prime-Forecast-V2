@@ -27,7 +27,7 @@
             <table id="dataTable" class="table table-bordered table-striped">
                 <thead>
                     <tr>
-                        <th style="width:60px;">ลำดับ</th>
+                        <th style="width:60px; text-align:center;">ลำดับ</th>
                         <th>ชื่อบริษัท</th>
                         <th>อุตสาหกรรม</th>
                         <th>จัดการ</th>
@@ -36,7 +36,7 @@
                 <tbody>
                     @foreach($companies as $company)
                     <tr>
-                        <td>{{ $loop->iteration }}</td>
+                        <td style="text-align:center;">{{ $loop->iteration }}</td>
                         <td>{{ $company->company }}</td>
                         <td>{{ $company->Industry ?? '-' }}</td>
                         <td>
