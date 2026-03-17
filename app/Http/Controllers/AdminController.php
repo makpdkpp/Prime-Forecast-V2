@@ -1289,7 +1289,7 @@ class AdminController extends Controller
     public function reportBidding(Request $request)
     {
         $availableUsers = DB::table('user')
-            ->select('user_id', 'nname', 'surename')
+            ->select('user_id', 'nname', 'surename', 'is_active')
             ->where('role_id', 3)
             ->orderBy('nname')
             ->orderBy('surename')
@@ -1359,7 +1359,7 @@ class AdminController extends Controller
     public function reportContract(Request $request)
     {
         $availableUsers = DB::table('user')
-            ->select('user_id', 'nname', 'surename')
+            ->select('user_id', 'nname', 'surename', 'is_active')
             ->where('role_id', 3)
             ->orderBy('nname')
             ->orderBy('surename')
@@ -1429,7 +1429,7 @@ class AdminController extends Controller
     public function reportWindate(Request $request)
     {
         $availableUsers = DB::table('user')
-            ->select('user_id', 'nname', 'surename')
+            ->select('user_id', 'nname', 'surename', 'is_active')
             ->where('role_id', 3)
             ->orderBy('nname')
             ->orderBy('surename')

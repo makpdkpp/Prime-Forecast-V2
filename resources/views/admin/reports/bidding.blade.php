@@ -27,11 +27,19 @@
                                 <select name="user_id" id="user_id" class="form-control">
                                     <option value="">ทุกคน</option>
                                     @foreach($availableUsers as $user)
-                                        <option value="{{ $user->user_id }}">
-                                            {{ trim(($user->nname ?? '') . ' ' . ($user->surename ?? '')) }}
+                                        <option value="{{ $user->user_id }}"
+                                            data-active="{{ $user->is_active ? '1' : '0' }}"
+                                            {{ $user->is_active ? '' : 'class=text-muted' }}>
+                                            {{ trim(($user->nname ?? '') . ' ' . ($user->surename ?? '')) }}{{ $user->is_active ? '' : ' (ไม่ได้ใช้งาน)' }}
                                         </option>
                                     @endforeach
                                 </select>
+                                <div class="mt-1">
+                                    <div class="icheck-primary d-inline">
+                                        <input type="checkbox" id="showInactive" name="show_inactive">
+                                        <label for="showInactive">แสดงเซลล์ที่ไม่ได้ใช้งาน</label>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                         <div class="col-md-3">
@@ -105,6 +113,23 @@ $(function () {
     // Setup CSRF for all AJAX
     $.ajaxSetup({
         headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' }
+    });
+
+    // User dropdown: hide inactive by default
+    function filterUserDropdown(showInactive) {
+        const currentVal = $('#user_id').val();
+        $('#user_id option').each(function() {
+            if ($(this).val() === '') return;
+            const isActive = $(this).data('active') == '1';
+            $(this).toggle(showInactive || isActive);
+        });
+        if (!showInactive && $('#user_id option:selected').data('active') == '0') {
+            $('#user_id').val('');
+        }
+    }
+    filterUserDropdown(false);
+    $('#showInactive').on('change', function() {
+        filterUserDropdown($(this).is(':checked'));
     });
 
     // Flatpickr for date inputs

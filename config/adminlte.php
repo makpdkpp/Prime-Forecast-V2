@@ -430,6 +430,25 @@ return [
                 ],
             ],
         ],
+        [
+            'text' => 'Reports',
+            'icon' => 'fas fa-file-alt',
+            'can' => 'teamadmin',
+            'submenu' => [
+                [
+                    'text' => 'วันยื่น Bidding',
+                    'url' => 'teamadmin/reports/bidding',
+                ],
+                [
+                    'text' => 'วันเซ็นสัญญา',
+                    'url' => 'teamadmin/reports/contract',
+                ],
+                [
+                    'text' => 'Windate',
+                    'url' => 'teamadmin/reports/windate',
+                ],
+            ],
+        ],
         
         // User Menu (role_id = 3)
         [

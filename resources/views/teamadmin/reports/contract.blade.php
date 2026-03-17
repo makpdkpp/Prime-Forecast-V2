@@ -92,9 +92,7 @@
                                 <th>ชื่อผู้รับผิดชอบ</th>
                             </tr>
                         </thead>
-                        <tbody>
-                            <!-- Data populated by DataTables -->
-                        </tbody>
+                        <tbody></tbody>
                     </table>
                 </div>
             </div>
@@ -110,7 +108,6 @@
 
 <script>
 $(function () {
-    // Setup CSRF for all AJAX
     $.ajaxSetup({
         headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' }
     });
@@ -131,7 +128,6 @@ $(function () {
         filterUserDropdown($(this).is(':checked'));
     });
 
-    // Flatpickr for date inputs
     flatpickr('.flatpickr', {
         dateFormat: 'd/m/Y',
         locale: {
@@ -148,17 +144,15 @@ $(function () {
         onChange: function(selectedDates, dateStr, instance) {
             if (selectedDates.length > 0) {
                 const d = selectedDates[0];
-                const day = String(d.getDate()).padStart(2, '0');
+                const day   = String(d.getDate()).padStart(2, '0');
                 const month = String(d.getMonth() + 1).padStart(2, '0');
-                const thaiYear = d.getFullYear() + 543;
-                const isoDate = d.getFullYear() + '-' + month + '-' + day;
-                instance.input.value = day + '/' + month + '/' + thaiYear;
-                $(instance.input).data('isoValue', isoDate);
+                const iso   = d.getFullYear() + '-' + month + '-' + day;
+                instance.input.value = day + '/' + month + '/' + (d.getFullYear() + 543);
+                $(instance.input).data('isoValue', iso);
             }
         }
     });
 
-    // DataTables
     const table = $("#reportTable").DataTable({
         "processing": true,
         "serverSide": false,
@@ -185,64 +179,37 @@ $(function () {
         ]
     });
 
-    // Load data function
     function loadData() {
         var params = {
-            user_id: $('#user_id').val(),
+            user_id:   $('#user_id').val(),
             date_from: $('input[name="date_from"]').data('isoValue') || '',
-            date_to: $('input[name="date_to"]').data('isoValue') || ''
+            date_to:   $('input[name="date_to"]').data('isoValue') || ''
         };
-
-        $.post('{{ route("admin.reports.contract.data") }}', params, function(response) {
+        $.post('{{ route("teamadmin.reports.contract.data") }}', params, function(response) {
             table.clear().rows.add(response.data).draw();
         });
     }
 
-    // Filter button click
-    $('#filterBtn').on('click', function() {
-        loadData();
-    });
+    $('#filterBtn').on('click', function() { loadData(); });
 
-    // Export functions
     $('#exportExcel').on('click', function() {
-        const formData = $('#reportFilterForm').serializeArray();
         const params = { export_type: 'excel' };
-        
-        formData.forEach(function(item) {
-            if (item.value) {
-                if (item.name === 'date_from' || item.name === 'date_to') {
-                    params[item.name] = $('input[name="' + item.name + '"]').data('isoValue');
-                } else {
-                    params[item.name] = item.value;
-                }
-            }
-        });
+        const userVal = $('#user_id').val();
+        if (userVal) params.user_id = userVal;
+        const df = $('input[name="date_from"]').data('isoValue');
+        const dt = $('input[name="date_to"]').data('isoValue');
+        if (df) params.date_from = df;
+        if (dt) params.date_to = dt;
 
-        const form = $('<form>', {
-            method: 'POST',
-            action: '{{ route("admin.reports.contract.data") }}'
-        });
-
-        // Add CSRF token
-        form.append($('<input>', {
-            type: 'hidden',
-            name: '_token',
-            value: '{{ csrf_token() }}'
-        }));
-
+        const form = $('<form>', { method: 'POST', action: '{{ route("teamadmin.reports.contract.data") }}' });
+        form.append($('<input>', { type: 'hidden', name: '_token', value: '{{ csrf_token() }}' }));
         Object.keys(params).forEach(function(key) {
-            form.append($('<input>', {
-                type: 'hidden',
-                name: key,
-                value: params[key]
-            }));
+            form.append($('<input>', { type: 'hidden', name: key, value: params[key] }));
         });
-
         $('body').append(form);
         form.submit();
         form.remove();
     });
-
 });
 </script>
 @stop

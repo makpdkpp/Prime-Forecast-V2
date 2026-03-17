@@ -1,9 +1,9 @@
-@extends('adminlte::page')
+﻿@extends('adminlte::page')
 
-@section('title', 'Contract Report | PrimeForecast')
+@section('title', 'Windate Report | PrimeForecast')
 
 @section('content_header')
-    <h1>รายงานวันเซ็นสัญญา</h1>
+    <h1>รายงาน Windate</h1>
 @stop
 
 @section('content')
@@ -68,7 +68,6 @@
         </div>
     </div>
 </div>
-
 <div class="row">
     <div class="col-md-12">
         <div class="card">
@@ -88,13 +87,11 @@
                                 <th>ชื่อโครงการ</th>
                                 <th>หน่วยงาน/บริษัท</th>
                                 <th>มูลค่า (฿)</th>
-                                <th>วันเซ็นสัญญา</th>
+                                <th>Windate</th>
                                 <th>ชื่อผู้รับผิดชอบ</th>
                             </tr>
                         </thead>
-                        <tbody>
-                            <!-- Data populated by DataTables -->
-                        </tbody>
+                        <tbody></tbody>
                     </table>
                 </div>
             </div>
@@ -107,13 +104,9 @@
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 <script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.7/js/dataTables.bootstrap4.min.js"></script>
-
 <script>
 $(function () {
-    // Setup CSRF for all AJAX
-    $.ajaxSetup({
-        headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' }
-    });
+    $.ajaxSetup({ headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' } });
 
     // User dropdown: hide inactive by default
     function filterUserDropdown(showInactive) {
@@ -131,118 +124,47 @@ $(function () {
         filterUserDropdown($(this).is(':checked'));
     });
 
-    // Flatpickr for date inputs
     flatpickr('.flatpickr', {
         dateFormat: 'd/m/Y',
         locale: {
             firstDayOfWeek: 1,
-            weekdays: {
-                shorthand: ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส'],
-                longhand: ['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์']
-            },
-            months: {
-                shorthand: ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'],
-                longhand: ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม']
-            }
+            weekdays: { shorthand: ['อา','จ','อ','พ','พฤ','ศ','ส'], longhand: ['อาทิตย์','จันทร์','อังคาร','พุธ','พฤหัสบดี','ศุกร์','เสาร์'] },
+            months: { shorthand: ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'], longhand: ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'] }
         },
         onChange: function(selectedDates, dateStr, instance) {
             if (selectedDates.length > 0) {
                 const d = selectedDates[0];
-                const day = String(d.getDate()).padStart(2, '0');
-                const month = String(d.getMonth() + 1).padStart(2, '0');
-                const thaiYear = d.getFullYear() + 543;
-                const isoDate = d.getFullYear() + '-' + month + '-' + day;
-                instance.input.value = day + '/' + month + '/' + thaiYear;
-                $(instance.input).data('isoValue', isoDate);
+                const day = String(d.getDate()).padStart(2,'0');
+                const month = String(d.getMonth()+1).padStart(2,'0');
+                instance.input.value = day+'/'+month+'/'+( d.getFullYear()+543);
+                $(instance.input).data('isoValue', d.getFullYear()+'-'+month+'-'+day);
             }
         }
     });
-
-    // DataTables
-    const table = $("#reportTable").DataTable({
-        "processing": true,
-        "serverSide": false,
-        "responsive": false,
-        "autoWidth": false,
-        "language": {
-            "processing": "กำลังดำเนินการ...",
-            "search": "ค้นหา:",
-            "lengthMenu": "แสดง _MENU_ รายการ",
-            "info": "แสดง _START_ ถึง _END_ จาก _TOTAL_ รายการ",
-            "infoEmpty": "แสดง 0 ถึง 0 จาก 0 รายการ",
-            "infoFiltered": "(กรองจาก _MAX_ รายการทั้งหมด)",
-            "zeroRecords": "ไม่พบข้อมูล",
-            "emptyTable": "ไม่มีข้อมูลในตาราง",
-            "paginate": { "first": "หน้าแรก", "previous": "ก่อนหน้า", "next": "ถัดไป", "last": "หน้าสุดท้าย" }
-        },
-        "data": [],
-        "columns": [
-            { data: 'project_name' },
-            { data: 'company_name' },
-            { data: 'value' },
-            { data: 'contract_date' },
-            { data: 'user_name' }
-        ]
+    const table = $('#reportTable').DataTable({
+        processing: true, serverSide: false, responsive: false, autoWidth: false,
+        language: { processing:'กำลังดำเนินการ...', search:'ค้นหา:', lengthMenu:'แสดง _MENU_ รายการ', info:'แสดง _START_ ถึง _END_ จาก _TOTAL_ รายการ', infoEmpty:'แสดง 0 ถึง 0 จาก 0 รายการ', infoFiltered:'(กรองจาก _MAX_ รายการทั้งหมด)', zeroRecords:'ไม่พบข้อมูล', emptyTable:'ไม่มีข้อมูลในตาราง', paginate:{first:'หน้าแรก',previous:'ก่อนหน้า',next:'ถัดไป',last:'หน้าสุดท้าย'} },
+        data: [],
+        columns: [ {data:'project_name'},{data:'company_name'},{data:'value'},{data:'win_date'},{data:'user_name'} ]
     });
-
-    // Load data function
     function loadData() {
-        var params = {
+        $.post('{{ route("teamadmin.reports.windate.data") }}', {
             user_id: $('#user_id').val(),
             date_from: $('input[name="date_from"]').data('isoValue') || '',
-            date_to: $('input[name="date_to"]').data('isoValue') || ''
-        };
-
-        $.post('{{ route("admin.reports.contract.data") }}', params, function(response) {
-            table.clear().rows.add(response.data).draw();
-        });
+            date_to:   $('input[name="date_to"]').data('isoValue') || ''
+        }, function(r){ table.clear().rows.add(r.data).draw(); });
     }
-
-    // Filter button click
-    $('#filterBtn').on('click', function() {
-        loadData();
-    });
-
-    // Export functions
+    $('#filterBtn').on('click', loadData);
     $('#exportExcel').on('click', function() {
-        const formData = $('#reportFilterForm').serializeArray();
-        const params = { export_type: 'excel' };
-        
-        formData.forEach(function(item) {
-            if (item.value) {
-                if (item.name === 'date_from' || item.name === 'date_to') {
-                    params[item.name] = $('input[name="' + item.name + '"]').data('isoValue');
-                } else {
-                    params[item.name] = item.value;
-                }
-            }
-        });
-
-        const form = $('<form>', {
-            method: 'POST',
-            action: '{{ route("admin.reports.contract.data") }}'
-        });
-
-        // Add CSRF token
-        form.append($('<input>', {
-            type: 'hidden',
-            name: '_token',
-            value: '{{ csrf_token() }}'
-        }));
-
-        Object.keys(params).forEach(function(key) {
-            form.append($('<input>', {
-                type: 'hidden',
-                name: key,
-                value: params[key]
-            }));
-        });
-
-        $('body').append(form);
-        form.submit();
-        form.remove();
+        const params = {export_type:'excel'};
+        const uv = $('#user_id').val(); if(uv) params.user_id=uv;
+        const df = $('input[name="date_from"]').data('isoValue'); if(df) params.date_from=df;
+        const dt = $('input[name="date_to"]').data('isoValue');   if(dt) params.date_to=dt;
+        const form = $('<form>',{method:'POST',action:'{{ route("teamadmin.reports.windate.data") }}'});
+        form.append($('<input>',{type:'hidden',name:'_token',value:'{{ csrf_token() }}'}));
+        Object.keys(params).forEach(k=>form.append($('<input>',{type:'hidden',name:k,value:params[k]})));
+        $('body').append(form); form.submit(); form.remove();
     });
-
 });
 </script>
 @stop
