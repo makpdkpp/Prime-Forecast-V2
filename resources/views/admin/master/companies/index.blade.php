@@ -27,7 +27,7 @@
             <table id="dataTable" class="table table-bordered table-striped">
                 <thead>
                     <tr>
-                        <th>ลำดับ</th>
+                        <th style="width:60px;">ลำดับ</th>
                         <th>ชื่อบริษัท</th>
                         <th>อุตสาหกรรม</th>
                         <th>จัดการ</th>

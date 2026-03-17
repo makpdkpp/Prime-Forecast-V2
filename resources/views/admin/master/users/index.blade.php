@@ -34,7 +34,7 @@
             <table id="dataTable" class="table table-bordered table-striped">
                 <thead>
                     <tr>
-                        <th>ลำดับ</th>
+                        <th style="width:60px;">ลำดับ</th>
                         <th>ชื่อ-นามสกุล</th>
                         <th>Email</th>
                         <th>Role</th>
