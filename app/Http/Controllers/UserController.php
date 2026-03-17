@@ -114,6 +114,131 @@ class UserController extends Controller
         return view('user.dashboard_table', compact('transactions', 'availableYears', 'selectedYear', 'quarter'));
     }
 
+    public function dashboardTableData(Request $request)
+    {
+        $userId = auth()->id();
+        $year    = $request->get('year');
+        $quarter = $request->get('quarter');
+
+        $draw   = (int) $request->input('draw', 1);
+        $start  = max((int) $request->input('start', 0), 0);
+        $length = (int) $request->input('length', 25);
+        if ($length <= 0 || $length > 200) {
+            $length = 25;
+        }
+
+        $base = DB::table('transactional as t')
+            ->whereNull('t.deleted_at')
+            ->where('t.user_id', $userId)
+            ->leftJoin('company_catalog as c',        't.company_id',        '=', 'c.company_id')
+            ->leftJoin('product_group as pg',         't.Product_id',        '=', 'pg.product_id')
+            ->leftJoin('team_catalog as tc',          't.team_id',           '=', 'tc.team_id')
+            ->leftJoin('priority_level as pl',        't.priority_id',       '=', 'pl.priority_id')
+            ->leftJoin('source_of_the_budget as sb',  't.Source_budget_id',  '=', 'sb.Source_budget_id')
+            ->leftJoin('step as s',                   't.Step_id',           '=', 's.level_id');
+
+        if ($year) {
+            $base->where('t.fiscalyear', $year);
+        }
+        if ($quarter) {
+            $base->whereRaw('QUARTER(t.contact_start_date) = ?', [$quarter]);
+        }
+
+        $total = (clone $base)->count('t.transac_id');
+
+        $searchValue = trim((string) data_get($request->input('search'), 'value', ''));
+        if ($searchValue !== '') {
+            $base->where(function ($q) use ($searchValue) {
+                $like = '%' . $searchValue . '%';
+                $q->where('t.Product_detail',  'like', $like)
+                  ->orWhere('c.company',        'like', $like)
+                  ->orWhere('pg.product',        'like', $like)
+                  ->orWhere('s.level',           'like', $like)
+                  ->orWhere('pl.priority',       'like', $like)
+                  ->orWhere('tc.team',           'like', $like)
+                  ->orWhere('t.remark',          'like', $like);
+            });
+        }
+
+        $filtered = (clone $base)->count('t.transac_id');
+
+        $orderMap = [
+            0  => 't.Product_detail',
+            1  => 'c.company',
+            2  => 't.product_value',
+            3  => 's.level',
+            4  => 'pl.priority',
+            5  => 't.fiscalyear',
+            6  => 't.contact_start_date',
+            7  => 't.date_of_closing_of_sale',
+            8  => 't.sales_can_be_close',
+            9  => 'pg.product',
+            10 => 'tc.team',
+            11 => 't.remark',
+        ];
+
+        $orderCol = (int) data_get($request->input('order'), '0.column', 6);
+        $orderDir = strtolower((string) data_get($request->input('order'), '0.dir', 'desc')) === 'asc' ? 'asc' : 'desc';
+        $orderBy  = $orderMap[$orderCol] ?? 't.updated_at';
+
+        $rows = $base
+            ->select([
+                't.transac_id',
+                't.Product_detail',
+                't.product_value',
+                't.fiscalyear',
+                't.contact_start_date',
+                't.date_of_closing_of_sale',
+                't.sales_can_be_close',
+                't.remark',
+                't.contact_person',
+                't.contact_phone',
+                't.contact_email',
+                'c.company',
+                'pg.product as product_name',
+                'tc.team',
+                'pl.priority',
+                'sb.Source_budge as source_budget',
+                's.level as step_level',
+            ])
+            ->orderBy($orderBy, $orderDir)
+            ->orderBy('t.transac_id', 'desc')
+            ->offset($start)
+            ->limit($length)
+            ->get();
+
+        $data = $rows->map(function ($r) {
+            $id = (int) $r->transac_id;
+            return [
+                'id'             => $id,
+                'project'        => $r->Product_detail,
+                'company'        => $r->company        ?? '-',
+                'value'          => (float) $r->product_value,
+                'status'         => $r->step_level     ?? '-',
+                'priority'       => $r->priority       ?? '-',
+                'year'           => $r->fiscalyear ? ((int) $r->fiscalyear + 543) : '-',
+                'start'          => $r->contact_start_date,
+                'bidding'        => $r->date_of_closing_of_sale,
+                'contract'       => $r->sales_can_be_close,
+                'product'        => $r->product_name   ?? '-',
+                'team'           => $r->team            ?? '-',
+                'source'         => $r->source_budget  ?? '-',
+                'contact_person' => $r->contact_person ?? '-',
+                'contact_phone'  => $r->contact_phone  ?? '-',
+                'contact_email'  => $r->contact_email  ?? '-',
+                'remark'         => $r->remark          ?? '-',
+                'action'         => '<a href="' . route('user.sales.edit', $id) . '" class="btn btn-sm btn-info" title="แก้ไข"><i class="fas fa-pencil-alt"></i></a>',
+            ];
+        })->values();
+
+        return response()->json([
+            'draw'            => $draw,
+            'recordsTotal'    => $total,
+            'recordsFiltered' => $filtered,
+            'data'            => $data,
+        ]);
+    }
+
     public function chartDetail(Request $request)
     {
         $userId = auth()->id();

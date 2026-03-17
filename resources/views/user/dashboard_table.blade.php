@@ -1,16 +1,30 @@
 @extends('adminlte::page')
 
-@section('title', 'Sales Dashboard (Table) | PrimeForecast')
+@section('title', 'Sales Dashboard (ตาราง) | PrimeForecast')
 
 @section('content_header')
-    <div class="row mb-2">
-        <div class="col-sm-6">
-            <h1>Sales Dashboard</h1>
-        </div>
-    </div>
+    <h1>Sales Dashboard (ตาราง)</h1>
 @stop
 
 @section('content')
+    @if(session('success'))
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            {{ session('success') }}
+            <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                <span aria-hidden="true">&times;</span>
+            </button>
+        </div>
+    @endif
+
+    @if(session('error'))
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            {{ session('error') }}
+            <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                <span aria-hidden="true">&times;</span>
+            </button>
+        </div>
+    @endif
+
     <!-- Filter Section -->
     <div class="row mb-2">
         <div class="col-md-12">
@@ -35,7 +49,7 @@
                     </div>
                 </div>
                 <div class="card-body py-2" style="display: none;">
-                    <form method="GET" action="{{ route('user.dashboard.table') }}">
+                    <form method="GET" action="{{ route('user.dashboard.table') }}" id="tableFilterForm">
                         <div class="row align-items-end">
                             <div class="col-md-2">
                                 <label class="mb-1"><small>ปีงบประมาณ (พ.ศ.):</small></label>
@@ -59,8 +73,9 @@
                                 </select>
                             </div>
                             <div class="col-md-2">
-                                <button type="submit" class="btn btn-success btn-sm btn-block">
-                                    <i class="fas fa-search"></i> กรอง
+                                <button type="submit" class="btn btn-success btn-sm btn-block" id="tableFilterBtn">
+                                    <span id="tableFilterBtnText"><i class="fas fa-search"></i> กรอง</span>
+                                    <span id="tableFilterBtnSpinner" class="spinner-border spinner-border-sm ml-1" style="display:none;"></span>
                                 </button>
                             </div>
                             <div class="col-md-2">
@@ -80,87 +95,119 @@
             <h3 class="card-title">Forecast Data Table ({{ Auth::user()->nname ?: 'Sales' }})</h3>
         </div>
         <div class="card-body">
-            <table id="salesTable" class="table table-bordered table-striped">
-                <thead>
-                    <tr>
-                        <th>ชื่อโครงการ</th>
-                        <th>หน่วยงาน/บริษัท</th>
-                        <th>มูลค่า (฿)</th>
-                        <th>แหล่งงบประมาณ</th>
-                        <th>ปีงบประมาณ</th>
-                        <th>กลุ่มสินค้า</th>
-                        <th>ทีม</th>
-                        <th>โอกาสชนะ</th>
-                        <th>วันที่เริ่ม</th>
-                        <th>วันยื่น Bidding</th>
-                        <th>วันเซ็นสัญญา</th>
-                        <th>สถานะ</th>
-                        <th>ผู้ติดต่อ</th>
-                        <th>เบอร์โทร</th>
-                        <th>อีเมล</th>
-                        <th>หมายเหตุ</th>
-                        <th>Action</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach($transactions as $t)
-                    <tr>
-                        <td>{{ $t->Product_detail }}</td>
-                        <td>{{ $t->company->company ?? '-' }}</td>
-                        <td>{{ number_format($t->product_value) }}</td>
-                        <td>{{ $t->sourceBudget->Source_budge ?? '-' }}</td>
-                        <td>{{ $t->fiscalyear + 543 }}</td>
-                        <td>{{ $t->productGroup->product ?? '-' }}</td>
-                        <td>{{ $t->team->team ?? '-' }}</td>
-                        <td>{{ $t->priority->priority ?? '-' }}</td>
-                        <td>{{ thaiDate($t->contact_start_date) }}</td>
-                        <td>{{ thaiDate($t->date_of_closing_of_sale) }}</td>
-                        <td>{{ thaiDate($t->sales_can_be_close) }}</td>
-                        <td>{{ $t->latestStep->step->level ?? '-' }}</td>
-                        <td>{{ $t->contact_person ?? '-' }}</td>
-                        <td>{{ $t->contact_phone ?? '-' }}</td>
-                        <td>{{ $t->contact_email ?? '-' }}</td>
-                        <td>{{ $t->remark }}</td>
-                        <td class="text-center">
-                            <a href="{{ route('user.sales.edit', $t->transac_id) }}" class="btn btn-sm btn-info" title="แก้ไข">
-                                <i class="fas fa-pencil-alt"></i>
-                            </a>
-                        </td>
-                    </tr>
-                    @endforeach
-                </tbody>
-            </table>
+            <div class="table-responsive">
+                <table id="salesTable" class="table table-bordered table-striped">
+                    <thead>
+                        <tr>
+                            <th>ชื่อโครงการ</th>
+                            <th>หน่วยงาน/บริษัท</th>
+                            <th>มูลค่า (฿)</th>
+                            <th>สถานะ</th>
+                            <th>โอกาสชนะ</th>
+                            <th>ปีงบประมาณ</th>
+                            <th>วันที่เริ่ม</th>
+                            <th>วันยื่น Bidding</th>
+                            <th>วันเซ็นสัญญา</th>
+                            <th>กลุ่มสินค้า</th>
+                            <th>ทีม</th>
+                            <th>หมายเหตุ</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Data will be loaded via DataTables AJAX -->
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 
-    <!-- Modal for requesting new company -->
-    <div class="modal fade" id="requestCompanyModal" tabindex="-1" role="dialog" aria-labelledby="modalLabel" aria-hidden="true">
-        <div class="modal-dialog" role="document">
+    <!-- View Detail Modal -->
+    <div class="modal fade" id="viewDetailModal" tabindex="-1" role="dialog" aria-labelledby="viewDetailModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg" role="document">
             <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="modalLabel">แบบฟอร์มขอเพิ่มหน่วยงาน/บริษัท</h5>
-                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title" id="viewDetailModalLabel"><i class="fas fa-info-circle"></i> รายละเอียดข้อมูลการขาย</h5>
+                    <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">
                         <span aria-hidden="true">&times;</span>
                     </button>
                 </div>
-                <form id="companyRequestForm">
-                    @csrf
-                    <div class="modal-body">
-                        <div class="form-group">
-                            <label for="newCompanyName">ชื่อหน่วยงาน/บริษัทที่ต้องการเพิ่ม</label>
-                            <input type="text" class="form-control" id="newCompanyName" name="company_name" required>
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-12 mb-3">
+                            <h5 class="text-success" id="modal-project"></h5>
                         </div>
-                        <div class="form-group">
-                            <label for="companyNotes">รายละเอียดเพิ่มเติม (ถ้ามี)</label>
-                            <textarea class="form-control" id="companyNotes" name="notes" rows="3"></textarea>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="card card-outline card-info mb-3">
+                                <div class="card-header py-2"><strong><i class="fas fa-building"></i> ข้อมูลโครงการ</strong></div>
+                                <div class="card-body py-2">
+                                    <p class="mb-1"><strong>หน่วยงาน/บริษัท:</strong> <span id="modal-company"></span></p>
+                                    <p class="mb-1"><strong>มูลค่า:</strong> <span id="modal-value" class="text-success font-weight-bold"></span> บาท</p>
+                                    <p class="mb-1"><strong>กลุ่มสินค้า:</strong> <span id="modal-product"></span></p>
+                                </div>
+                            </div>
                         </div>
-                        <div id="requestStatus" class="mt-3"></div>
+                        <div class="col-md-6">
+                            <div class="card card-outline card-warning mb-3">
+                                <div class="card-header py-2"><strong><i class="fas fa-coins"></i> งบประมาณ</strong></div>
+                                <div class="card-body py-2">
+                                    <p class="mb-1"><strong>แหล่งงบประมาณ:</strong> <span id="modal-source"></span></p>
+                                    <p class="mb-1"><strong>ปีงบประมาณ:</strong> <span id="modal-year"></span></p>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-dismiss="modal">ปิด</button>
-                        <button type="submit" class="btn btn-primary">ส่งคำขอ</button>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="card card-outline card-success mb-3">
+                                <div class="card-header py-2"><strong><i class="fas fa-calendar-alt"></i> วันที่สำคัญ</strong></div>
+                                <div class="card-body py-2">
+                                    <p class="mb-1"><strong>วันที่เริ่ม:</strong> <span id="modal-start"></span></p>
+                                    <p class="mb-1"><strong>วันยื่น Bidding:</strong> <span id="modal-bidding"></span></p>
+                                    <p class="mb-1"><strong>วันเซ็นสัญญา:</strong> <span id="modal-contract"></span></p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card card-outline card-danger mb-3">
+                                <div class="card-header py-2"><strong><i class="fas fa-chart-line"></i> สถานะ</strong></div>
+                                <div class="card-body py-2">
+                                    <p class="mb-1"><strong>สถานะปัจจุบัน:</strong> <span id="modal-status" class="badge badge-info"></span></p>
+                                    <p class="mb-1"><strong>โอกาสชนะ:</strong> <span id="modal-priority"></span></p>
+                                    <p class="mb-1"><strong>ทีม:</strong> <span id="modal-team"></span></p>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                </form>
+                    <div class="row">
+                        <div class="col-md-12">
+                            <div class="card card-outline card-primary mb-3">
+                                <div class="card-header py-2"><strong><i class="fas fa-user-tie"></i> ข้อมูลผู้ติดต่อ</strong></div>
+                                <div class="card-body py-2">
+                                    <p class="mb-1"><strong>ชื่อผู้ติดต่อ:</strong> <span id="modal-contact-person"></span></p>
+                                    <p class="mb-1"><strong>เบอร์โทร:</strong> <span id="modal-contact-phone"></span></p>
+                                    <p class="mb-1"><strong>อีเมล:</strong> <span id="modal-contact-email"></span></p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-12">
+                            <div class="card card-outline card-dark">
+                                <div class="card-header py-2"><strong><i class="fas fa-sticky-note"></i> หมายเหตุ</strong></div>
+                                <div class="card-body py-2">
+                                    <p class="mb-0" id="modal-remark"></p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <a id="modal-edit-btn" href="#" class="btn btn-info"><i class="fas fa-pencil-alt"></i> แก้ไข</a>
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">ปิด</button>
+                </div>
             </div>
         </div>
     </div>
@@ -179,74 +226,102 @@
 
 <script>
 $(function () {
-    $("#salesTable").DataTable({
-        "responsive": true,
+    const table = $("#salesTable").DataTable({
+        "processing": true,
+        "serverSide": true,
+        "responsive": false,
         "lengthChange": true,
         "autoWidth": false,
         "language": { "url": "//cdn.datatables.net/plug-ins/1.13.7/i18n/th.json" },
         "dom": 'lBfrtip',
+        "ajax": {
+            "url": "{{ route('user.dashboard.table.data') }}",
+            "data": function(d) {
+                d.year    = $('select[name="year"]').val()    || '{{ request("year") }}';
+                d.quarter = $('select[name="quarter"]').val() || '{{ request("quarter") }}';
+            }
+        },
+        "columns": [
+            { data: 'project' },
+            { data: 'company' },
+            { data: 'value',    render: function(v){ return Number(v || 0).toLocaleString('th-TH'); } },
+            { data: 'status' },
+            { data: 'priority' },
+            { data: 'year' },
+            { data: 'start',    render: function(v){ return formatThaiDate(v); } },
+            { data: 'bidding',  render: function(v){ return formatThaiDate(v); } },
+            { data: 'contract', render: function(v){ return formatThaiDate(v); } },
+            { data: 'product' },
+            { data: 'team' },
+            { data: 'remark' },
+            { data: 'action', orderable: false, searchable: false, className: 'text-center' }
+        ],
         "buttons": [
-            {
-                text: '<i class="fas fa-plus-circle"></i> ขอเพิ่มหน่วยงาน',
-                className: 'btn btn-primary',
-                action: function (e, dt, node, config) {
-                    $('#requestCompanyModal').modal('show');
-                    $('#companyRequestForm')[0].reset();
-                    $('#requestStatus').html('');
-                }
-            },
             {
                 extend: 'excelHtml5',
                 text: '<i class="fas fa-file-excel"></i> Export to Excel',
                 className: 'btn btn-success',
                 titleAttr: 'Export to Excel',
                 bom: true,
-                exportOptions: {
-                    columns: ':not(:last-child)'
-                }
+                exportOptions: { columns: ':not(:last-child)' }
             },
             {
                 extend: 'colvis',
                 text: 'เลือกคอลัมน์',
                 className: 'btn btn-info'
             }
-        ]
+        ],
+        "order": [[6, 'desc']]
     });
 
-    $('#companyRequestForm').on('submit', function(e) {
-        e.preventDefault();
+    // Row click → View Detail Modal
+    $('#salesTable tbody').on('click', 'tr', function(e) {
+        if ($(e.target).closest('td:last-child').length) return;
 
-        var companyName = $('#newCompanyName').val();
-        if (companyName.trim() === '') {
-            alert('กรุณากรอกชื่อบริษัท');
-            return;
+        const row = table.row(this).data();
+        if (!row) return;
+
+        $('#modal-project').text(row.project || '-');
+        $('#modal-company').text(row.company || '-');
+        $('#modal-value').text(Number(row.value || 0).toLocaleString('th-TH'));
+        $('#modal-status').text(row.status || '-');
+        $('#modal-priority').text(row.priority || '-');
+        $('#modal-year').text(row.year || '-');
+        $('#modal-start').text(formatThaiDate(row.start));
+        $('#modal-bidding').text(formatThaiDate(row.bidding));
+        $('#modal-contract').text(formatThaiDate(row.contract));
+        $('#modal-product').text(row.product || '-');
+        $('#modal-team').text(row.team || '-');
+        $('#modal-source').text(row.source || '-');
+        $('#modal-contact-person').text(row.contact_person || '-');
+        $('#modal-contact-phone').text(row.contact_phone || '-');
+        $('#modal-contact-email').text(row.contact_email || '-');
+        $('#modal-remark').text(row.remark || '-');
+
+        // Update edit button href
+        const editUrl = $(row.action).attr('href');
+        if (editUrl) $('#modal-edit-btn').attr('href', editUrl);
+
+        $('#viewDetailModal').modal('show');
+    });
+
+    function formatThaiDate(dateStr) {
+        if (!dateStr || dateStr === '-') return '-';
+        try {
+            const date = new Date(dateStr);
+            const day   = String(date.getDate()).padStart(2, '0');
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const year  = date.getFullYear() + 543;
+            return `${day}/${month}/${year}`;
+        } catch (e) {
+            return dateStr;
         }
+    }
 
-        $('#requestStatus').html('<div class="alert alert-info">กำลังส่งคำขอ...</div>');
-        $('button[type="submit"]', this).prop('disabled', true);
-
-        $.ajax({
-            url: '{{ route("user.company.request") }}',
-            type: 'POST',
-            dataType: 'json',
-            data: $(this).serialize(),
-            success: function(response) {
-                if (response.success) {
-                    $('#requestStatus').html('<div class="alert alert-success">ส่งคำขอเรียบร้อยแล้ว!</div>');
-                    setTimeout(function() {
-                        $('#requestCompanyModal').modal('hide');
-                    }, 2000);
-                } else {
-                    $('#requestStatus').html('<div class="alert alert-danger">เกิดข้อผิดพลาด: ' + response.message + '</div>');
-                }
-            },
-            error: function() {
-                $('#requestStatus').html('<div class="alert alert-danger">เกิดข้อผิดพลาดในการเชื่อมต่อ</div>');
-            },
-            complete: function() {
-                $('button[type="submit"]', '#companyRequestForm').prop('disabled', false);
-            }
-        });
+    $('#tableFilterForm').on('submit', function () {
+        $('#tableFilterBtn').prop('disabled', true);
+        $('#tableFilterBtnText').text('กำลังกรอง...');
+        $('#tableFilterBtnSpinner').show();
     });
 });
 </script>
@@ -259,6 +334,10 @@ $(function () {
 <style>
     .content-wrapper {
         background-color: #b3d6e4;
+    }
+    .table-responsive {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
     }
 </style>
 @stop
