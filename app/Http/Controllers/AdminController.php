@@ -1265,16 +1265,20 @@ class AdminController extends Controller
 
     public function reportBiddingData(Request $request)
     {
-        $userId = $request->get('user_id');
-        $dateFrom = $request->get('date_from');
-        $dateTo = $request->get('date_to');
-        $exportType = $request->get('export_type'); // excel or pdf
+        $request->validate([
+            'user_id'     => 'nullable|integer|exists:user,user_id',
+            'date_from'   => 'nullable|date_format:Y-m-d',
+            'date_to'     => 'nullable|date_format:Y-m-d',
+            'export_type' => 'nullable|in:excel',
+        ]);
+
+        $userId     = $request->integer('user_id') ?: null;
+        $dateFrom   = $request->get('date_from');
+        $dateTo     = $request->get('date_to');
+        $exportType = $request->get('export_type');
 
         if ($exportType === 'excel') {
             return Excel::download(new BiddingReportExport($userId, $dateFrom, $dateTo), 'รายงานวันยื่น_Bidding_' . date('Y-m-d') . '.xlsx');
-        } elseif ($exportType === 'pdf') {
-            $pdf = new BiddingReportPdf($userId, $dateFrom, $dateTo);
-            return $pdf->generate();
         }
 
         // Return data for DataTables
@@ -1331,16 +1335,20 @@ class AdminController extends Controller
 
     public function reportContractData(Request $request)
     {
-        $userId = $request->get('user_id');
-        $dateFrom = $request->get('date_from');
-        $dateTo = $request->get('date_to');
-        $exportType = $request->get('export_type'); // excel or pdf
+        $request->validate([
+            'user_id'     => 'nullable|integer|exists:user,user_id',
+            'date_from'   => 'nullable|date_format:Y-m-d',
+            'date_to'     => 'nullable|date_format:Y-m-d',
+            'export_type' => 'nullable|in:excel',
+        ]);
+
+        $userId     = $request->integer('user_id') ?: null;
+        $dateFrom   = $request->get('date_from');
+        $dateTo     = $request->get('date_to');
+        $exportType = $request->get('export_type');
 
         if ($exportType === 'excel') {
             return Excel::download(new ContractReportExport($userId, $dateFrom, $dateTo), 'รายงานวันเซ็นสัญญา_' . date('Y-m-d') . '.xlsx');
-        } elseif ($exportType === 'pdf') {
-            $pdf = new ContractReportPdf($userId, $dateFrom, $dateTo);
-            return $pdf->generate();
         }
 
         // Return data for DataTables
@@ -1377,6 +1385,83 @@ class AdminController extends Controller
                     'company_name' => $item->company_name ?? '-',
                     'value' => number_format($item->value ?? 0, 2),
                     'contract_date' => $item->contract_date ? \Carbon\Carbon::parse($item->contract_date)->format('d/m/Y') : '-',
+                    'user_name' => $item->user_name ?? '-'
+                ];
+            })
+        ]);
+    }
+
+    public function reportWindate(Request $request)
+    {
+        $availableUsers = DB::table('user')
+            ->select('user_id', 'nname', 'surename')
+            ->where('role_id', 3)
+            ->orderBy('nname')
+            ->orderBy('surename')
+            ->get();
+
+        return view('admin.reports.windate', compact('availableUsers'));
+    }
+
+    public function reportWindateData(Request $request)
+    {
+        $request->validate([
+            'user_id'     => 'nullable|integer|exists:user,user_id',
+            'date_from'   => 'nullable|date_format:Y-m-d',
+            'date_to'     => 'nullable|date_format:Y-m-d',
+            'export_type' => 'nullable|in:excel',
+        ]);
+
+        $userId     = $request->integer('user_id') ?: null;
+        $dateFrom   = $request->get('date_from');
+        $dateTo     = $request->get('date_to');
+        $exportType = $request->get('export_type');
+
+        if ($exportType === 'excel') {
+            return Excel::download(new \App\Exports\WindateReportExport($userId, $dateFrom, $dateTo), 'รายงาน_Windate_' . date('Y-m-d') . '.xlsx');
+        }
+
+        $winSub = DB::table('transactional_step as ts')
+            ->join('step as s', 's.level_id', '=', 'ts.level_id')
+            ->where('s.level', 5)
+            ->select('ts.transac_id', DB::raw('MAX(ts.transacstep_id) as max_step_id'))
+            ->groupBy('ts.transac_id');
+
+        $query = DB::table('transactional as t')
+            ->joinSub($winSub, 'win_latest', 'win_latest.transac_id', '=', 't.transac_id')
+            ->join('transactional_step as ts_win', 'ts_win.transacstep_id', '=', 'win_latest.max_step_id')
+            ->leftJoin('company_catalog as c', 't.company_id', '=', 'c.company_id')
+            ->leftJoin('user as u', 't.user_id', '=', 'u.user_id')
+            ->select([
+                't.Product_detail as project_name',
+                'c.company as company_name',
+                't.product_value as value',
+                'ts_win.date as win_date',
+                DB::raw("CONCAT(u.nname, ' ', u.surename) as user_name")
+            ])
+            ->whereNull('t.deleted_at');
+
+        if ($userId) {
+            $query->where('t.user_id', $userId);
+        }
+
+        if ($dateFrom) {
+            $query->where('ts_win.date', '>=', $dateFrom);
+        }
+
+        if ($dateTo) {
+            $query->where('ts_win.date', '<=', $dateTo);
+        }
+
+        $data = $query->orderBy('ts_win.date', 'desc')->get();
+
+        return response()->json([
+            'data' => $data->map(function ($item) {
+                return [
+                    'project_name' => $item->project_name ?? '-',
+                    'company_name' => $item->company_name ?? '-',
+                    'value' => number_format($item->value ?? 0, 2),
+                    'win_date' => $item->win_date ? \Carbon\Carbon::parse($item->win_date)->format('d/m/Y') : '-',
                     'user_name' => $item->user_name ?? '-'
                 ];
             })

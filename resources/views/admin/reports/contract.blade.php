@@ -70,9 +70,6 @@
                     <button type="button" id="exportExcel" class="btn btn-success btn-sm">
                         <i class="fas fa-file-excel"></i> Export Excel
                     </button>
-                    <button type="button" id="exportPdf" class="btn btn-danger btn-sm ml-2">
-                        <i class="fas fa-file-pdf"></i> Export PDF
-                    </button>
                 </div>
             </div>
             <div class="card-body">
@@ -143,7 +140,17 @@ $(function () {
         "serverSide": false,
         "responsive": false,
         "autoWidth": false,
-        "language": { "url": "https://cdn.datatables.net/plug-ins/1.13.7/i18n/th.json" },
+        "language": {
+            "processing": "กำลังดำเนินการ...",
+            "search": "ค้นหา:",
+            "lengthMenu": "แสดง _MENU_ รายการ",
+            "info": "แสดง _START_ ถึง _END_ จาก _TOTAL_ รายการ",
+            "infoEmpty": "แสดง 0 ถึง 0 จาก 0 รายการ",
+            "infoFiltered": "(กรองจาก _MAX_ รายการทั้งหมด)",
+            "zeroRecords": "ไม่พบข้อมูล",
+            "emptyTable": "ไม่มีข้อมูลในตาราง",
+            "paginate": { "first": "หน้าแรก", "previous": "ก่อนหน้า", "next": "ถัดไป", "last": "หน้าสุดท้าย" }
+        },
         "data": [],
         "columns": [
             { data: 'project_name' },
@@ -212,44 +219,6 @@ $(function () {
         form.remove();
     });
 
-    $('#exportPdf').on('click', function() {
-        const formData = $('#reportFilterForm').serializeArray();
-        const params = { export_type: 'pdf' };
-        
-        formData.forEach(function(item) {
-            if (item.value) {
-                if (item.name === 'date_from' || item.name === 'date_to') {
-                    params[item.name] = $('input[name="' + item.name + '"]').data('isoValue');
-                } else {
-                    params[item.name] = item.value;
-                }
-            }
-        });
-
-        const form = $('<form>', {
-            method: 'POST',
-            action: '{{ route("admin.reports.contract.data") }}'
-        });
-
-        // Add CSRF token
-        form.append($('<input>', {
-            type: 'hidden',
-            name: '_token',
-            value: '{{ csrf_token() }}'
-        }));
-
-        Object.keys(params).forEach(function(key) {
-            form.append($('<input>', {
-                type: 'hidden',
-                name: key,
-                value: params[key]
-            }));
-        });
-
-        $('body').append(form);
-        form.submit();
-        form.remove();
-    });
 });
 </script>
 @stop

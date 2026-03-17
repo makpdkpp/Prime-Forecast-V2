@@ -348,6 +348,10 @@ return [
                     'text' => 'วันเซ็นสัญญา',
                     'url' => 'admin/reports/contract',
                 ],
+                [
+                    'text' => 'Windate',
+                    'url' => 'admin/reports/windate',
+                ],
             ],
         ],
         [

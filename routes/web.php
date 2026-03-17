@@ -86,6 +86,8 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/reports/bidding/data', [AdminController::class, 'reportBiddingData'])->name('reports.bidding.data');
         Route::get('/reports/contract', [AdminController::class, 'reportContract'])->name('reports.contract');
         Route::post('/reports/contract/data', [AdminController::class, 'reportContractData'])->name('reports.contract.data');
+        Route::get('/reports/windate', [AdminController::class, 'reportWindate'])->name('reports.windate');
+        Route::post('/reports/windate/data', [AdminController::class, 'reportWindateData'])->name('reports.windate.data');
         
         // Migration Management (for shared hosting without SSH)
         Route::get('/migration', [\App\Http\Controllers\Admin\MigrationController::class, 'index'])->name('migration.index');

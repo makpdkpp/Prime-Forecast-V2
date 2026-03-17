@@ -1,9 +1,9 @@
 @extends('adminlte::page')
 
-@section('title', 'Bidding Report | PrimeForecast')
+@section('title', 'Windate Report | PrimeForecast')
 
 @section('content_header')
-    <h1>รายงานวันยื่น Bidding</h1>
+    <h1>รายงาน Windate</h1>
 @stop
 
 @section('content')
@@ -37,13 +37,13 @@
                         <div class="col-md-3">
                             <div class="form-group">
                                 <label for="date_from">วันที่เริ่มต้น</label>
-                                <input type="text" name="date_from" id="date_from" class="form-control flatpickr" placeholder="dd/mm/yyyy">
+                                <input type="text" name="date_from" id="date_from" class="form-control flatpickr" placeholder="dd/mm/yyyy" autocomplete="off" readonly>
                             </div>
                         </div>
                         <div class="col-md-3">
                             <div class="form-group">
                                 <label for="date_to">วันที่สิ้นสุด</label>
-                                <input type="text" name="date_to" id="date_to" class="form-control flatpickr" placeholder="dd/mm/yyyy">
+                                <input type="text" name="date_to" id="date_to" class="form-control flatpickr" placeholder="dd/mm/yyyy" autocomplete="off" readonly>
                             </div>
                         </div>
                         <div class="col-md-3">
@@ -80,13 +80,11 @@
                                 <th>ชื่อโครงการ</th>
                                 <th>หน่วยงาน/บริษัท</th>
                                 <th>มูลค่า (฿)</th>
-                                <th>วันยื่น Bidding</th>
+                                <th>Windate</th>
                                 <th>ชื่อผู้รับผิดชอบ</th>
                             </tr>
                         </thead>
-                        <tbody>
-                            <!-- Data populated by DataTables -->
-                        </tbody>
+                        <tbody></tbody>
                     </table>
                 </div>
             </div>
@@ -102,43 +100,41 @@
 
 <script>
 $(function () {
-    // Setup CSRF for all AJAX
     $.ajaxSetup({
         headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' }
     });
 
-    // Flatpickr for date inputs
-    flatpickr('.flatpickr', {
-        dateFormat: 'd/m/Y',
-        locale: {
-            firstDayOfWeek: 1,
-            weekdays: {
-                shorthand: ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส'],
-                longhand: ['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์']
-            },
-            months: {
-                shorthand: ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'],
-                longhand: ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม']
-            }
+    var fpLocale = {
+        firstDayOfWeek: 1,
+        weekdays: {
+            shorthand: ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส'],
+            longhand: ['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์']
         },
-        onChange: function(selectedDates, dateStr, instance) {
-            if (selectedDates.length > 0) {
-                const d = selectedDates[0];
-                const day = String(d.getDate()).padStart(2, '0');
-                const month = String(d.getMonth() + 1).padStart(2, '0');
-                const thaiYear = d.getFullYear() + 543;
-                const isoDate = d.getFullYear() + '-' + month + '-' + day;
-                instance.input.value = day + '/' + month + '/' + thaiYear;
-                $(instance.input).data('isoValue', isoDate);
-            }
+        months: {
+            shorthand: ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'],
+            longhand: ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม']
         }
+    };
+
+    document.querySelectorAll('.flatpickr').forEach(function(el) {
+        flatpickr(el, {
+            dateFormat: 'Y-m-d',
+            locale: fpLocale,
+            onChange: function(selectedDates, dateStr, instance) {
+                if (selectedDates.length > 0) {
+                    var d = selectedDates[0];
+                    var day = String(d.getDate()).padStart(2, '0');
+                    var month = String(d.getMonth() + 1).padStart(2, '0');
+                    instance.input.setAttribute('data-iso', d.getFullYear() + '-' + month + '-' + day);
+                    instance.input.value = day + '/' + month + '/' + (d.getFullYear() + 543);
+                }
+            }
+        });
     });
 
-    // DataTables
-    const table = $("#reportTable").DataTable({
+    var table = $("#reportTable").DataTable({
         "processing": true,
         "serverSide": false,
-        "responsive": false,
         "autoWidth": false,
         "language": {
             "processing": "กำลังดำเนินการ...",
@@ -156,69 +152,36 @@ $(function () {
             { data: 'project_name' },
             { data: 'company_name' },
             { data: 'value' },
-            { data: 'bidding_date' },
+            { data: 'win_date' },
             { data: 'user_name' }
         ]
     });
 
-    // Load data function
-    function loadData() {
-        var params = {
+    function getParams() {
+        return {
             user_id: $('#user_id').val(),
-            date_from: $('input[name="date_from"]').data('isoValue') || '',
-            date_to: $('input[name="date_to"]').data('isoValue') || ''
+            date_from: $('input[name="date_from"]').attr('data-iso') || '',
+            date_to: $('input[name="date_to"]').attr('data-iso') || ''
         };
-
-        $.post('{{ route("admin.reports.bidding.data") }}', params, function(response) {
-            table.clear().rows.add(response.data).draw();
-        });
     }
 
-    // Filter button click
     $('#filterBtn').on('click', function() {
-        loadData();
+        $.post('{{ route("admin.reports.windate.data") }}', getParams(), function(response) {
+            table.clear().rows.add(response.data).draw();
+        });
     });
 
-    // Export functions
     $('#exportExcel').on('click', function() {
-        const formData = $('#reportFilterForm').serializeArray();
-        const params = { export_type: 'excel' };
-        
-        formData.forEach(function(item) {
-            if (item.value) {
-                if (item.name === 'date_from' || item.name === 'date_to') {
-                    params[item.name] = $('input[name="' + item.name + '"]').data('isoValue');
-                } else {
-                    params[item.name] = item.value;
-                }
-            }
+        var params = $.extend({ export_type: 'excel' }, getParams());
+        var form = $('<form>', { method: 'POST', action: '{{ route("admin.reports.windate.data") }}' });
+        form.append($('<input>', { type: 'hidden', name: '_token', value: '{{ csrf_token() }}' }));
+        $.each(params, function(key, val) {
+            form.append($('<input>', { type: 'hidden', name: key, value: val }));
         });
-
-        const form = $('<form>', {
-            method: 'POST',
-            action: '{{ route("admin.reports.bidding.data") }}'
-        });
-
-        // Add CSRF token
-        form.append($('<input>', {
-            type: 'hidden',
-            name: '_token',
-            value: '{{ csrf_token() }}'
-        }));
-
-        Object.keys(params).forEach(function(key) {
-            form.append($('<input>', {
-                type: 'hidden',
-                name: key,
-                value: params[key]
-            }));
-        });
-
         $('body').append(form);
         form.submit();
         form.remove();
     });
-
 });
 </script>
 @stop
