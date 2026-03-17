@@ -11,7 +11,7 @@
     <div class="col-md-12">
         <div class="card">
             <div class="card-header">
-                <h3 class="card-title">ฟลเตอรขอมล</h3>
+                <h3 class="card-title">ฟิลเตอร์ข้อมูล</h3>
                 <div class="card-tools">
                     <button type="button" class="btn btn-tool" data-card-widget="collapse">
                         <i class="fas fa-minus"></i>
@@ -23,26 +23,34 @@
                     <div class="row">
                         <div class="col-md-3">
                             <div class="form-group">
-                                <label for="user_id">ชอผใช</label>
+                                <label for="user_id">ชื่อผู้ใช้</label>
                                 <select name="user_id" id="user_id" class="form-control">
-                                    <option value="">ทกคน</option>
+                                    <option value="">ทุกคน</option>
                                     @foreach($availableUsers as $user)
-                                        <option value="{{ $user->user_id }}">
-                                            {{ trim(($user->nname ?? '') . ' ' . ($user->surename ?? '')) }}
+                                        <option value="{{ $user->user_id }}"
+                                            data-active="{{ $user->is_active ? '1' : '0' }}"
+                                            {{ $user->is_active ? '' : 'class=text-muted' }}>
+                                            {{ trim(($user->nname ?? '') . ' ' . ($user->surename ?? '')) }}{{ $user->is_active ? '' : ' (ไม่ได้ใช้งาน)' }}
                                         </option>
                                     @endforeach
                                 </select>
+                                <div class="mt-1">
+                                    <div class="icheck-primary d-inline">
+                                        <input type="checkbox" id="showInactive" name="show_inactive">
+                                        <label for="showInactive">แสดงเซลล์ที่ไม่ได้ใช้งาน</label>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                         <div class="col-md-3">
                             <div class="form-group">
-                                <label for="date_from">วนทเรมตน</label>
+                                <label for="date_from">วันที่เริ่มต้น</label>
                                 <input type="text" name="date_from" id="date_from" class="form-control flatpickr" placeholder="dd/mm/yyyy">
                             </div>
                         </div>
                         <div class="col-md-3">
                             <div class="form-group">
-                                <label for="date_to">วนทสนสด</label>
+                                <label for="date_to">วันที่สิ้นสุด</label>
                                 <input type="text" name="date_to" id="date_to" class="form-control flatpickr" placeholder="dd/mm/yyyy">
                             </div>
                         </div>
@@ -50,7 +58,7 @@
                             <div class="form-group">
                                 <label>&nbsp;</label><br>
                                 <button type="button" id="filterBtn" class="btn btn-primary">
-                                    <i class="fas fa-search"></i> กรองขอมล
+                                    <i class="fas fa-search"></i> กรองข้อมูล
                                 </button>
                             </div>
                         </div>
@@ -64,7 +72,7 @@
     <div class="col-md-12">
         <div class="card">
             <div class="card-header">
-                <h3 class="card-title">ผลลพธรายงาน</h3>
+                <h3 class="card-title">ผลลัพธ์รายงาน</h3>
                 <div class="card-tools">
                     <button type="button" id="exportExcel" class="btn btn-success btn-sm">
                         <i class="fas fa-file-excel"></i> Export Excel
@@ -76,11 +84,11 @@
                     <table id="reportTable" class="table table-bordered table-striped">
                         <thead>
                             <tr>
-                                <th>ชอโครงการ</th>
-                                <th>หนวยงาน/บรษท</th>
-                                <th>มลคา ()</th>
+                                <th>ชื่อโครงการ</th>
+                                <th>หน่วยงาน/บริษัท</th>
+                                <th>มูลค่า (฿)</th>
                                 <th>Windate</th>
-                                <th>ชอผรบผดชอบ</th>
+                                <th>ชื่อผู้รับผิดชอบ</th>
                             </tr>
                         </thead>
                         <tbody></tbody>
@@ -99,12 +107,29 @@
 <script>
 $(function () {
     $.ajaxSetup({ headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' } });
+
+    // User dropdown: hide inactive by default
+    function filterUserDropdown(showInactive) {
+        $('#user_id option').each(function() {
+            if ($(this).val() === '') return;
+            const isActive = $(this).data('active') == '1';
+            $(this).toggle(showInactive || isActive);
+        });
+        if (!showInactive && $('#user_id option:selected').data('active') == '0') {
+            $('#user_id').val('');
+        }
+    }
+    filterUserDropdown(false);
+    $('#showInactive').on('change', function() {
+        filterUserDropdown($(this).is(':checked'));
+    });
+
     flatpickr('.flatpickr', {
         dateFormat: 'd/m/Y',
         locale: {
             firstDayOfWeek: 1,
-            weekdays: { shorthand: ['อา','จ','อ','พ','พฤ','ศ','ส'], longhand: ['อาทตย','จนทร','องคาร','พธ','พฤหสบด','ศกร','เสาร'] },
-            months: { shorthand: ['ม.ค.','ก.พ.','ม.ค.','เม.ย.','พ.ค.','ม.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'], longhand: ['มกราคม','กมภาพนธ','มนาคม','เมษายน','พฤษภาคม','มถนายน','กรกฎาคม','สงหาคม','กนยายน','ตลาคม','พฤศจกายน','ธนวาคม'] }
+            weekdays: { shorthand: ['อา','จ','อ','พ','พฤ','ศ','ส'], longhand: ['อาทิตย์','จันทร์','อังคาร','พุธ','พฤหัสบดี','ศุกร์','เสาร์'] },
+            months: { shorthand: ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'], longhand: ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'] }
         },
         onChange: function(selectedDates, dateStr, instance) {
             if (selectedDates.length > 0) {
@@ -118,7 +143,7 @@ $(function () {
     });
     const table = $('#reportTable').DataTable({
         processing: true, serverSide: false, responsive: false, autoWidth: false,
-        language: { processing:'กำลงดำเนนการ...', search:'คนหา:', lengthMenu:'แสดง _MENU_ รายการ', info:'แสดง _START_ ถง _END_ จาก _TOTAL_ รายการ', infoEmpty:'แสดง 0 ถง 0 จาก 0 รายการ', infoFiltered:'(กรองจาก _MAX_ รายการทงหมด)', zeroRecords:'ไมพบขอมล', emptyTable:'ไมมขอมลในตาราง', paginate:{first:'หนาแรก',previous:'กอนหนา',next:'ถดไป',last:'หนาสดทาย'} },
+        language: { processing:'กำลังดำเนินการ...', search:'ค้นหา:', lengthMenu:'แสดง _MENU_ รายการ', info:'แสดง _START_ ถึง _END_ จาก _TOTAL_ รายการ', infoEmpty:'แสดง 0 ถึง 0 จาก 0 รายการ', infoFiltered:'(กรองจาก _MAX_ รายการทั้งหมด)', zeroRecords:'ไม่พบข้อมูล', emptyTable:'ไม่มีข้อมูลในตาราง', paginate:{first:'หน้าแรก',previous:'ก่อนหน้า',next:'ถัดไป',last:'หน้าสุดท้าย'} },
         data: [],
         columns: [ {data:'project_name'},{data:'company_name'},{data:'value'},{data:'win_date'},{data:'user_name'} ]
     });

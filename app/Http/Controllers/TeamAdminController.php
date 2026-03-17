@@ -1086,7 +1086,7 @@ class TeamAdminController extends Controller
     private function getTeamUsers(array $teamIds): \Illuminate\Support\Collection
     {
         return DB::table('user')
-            ->select('user_id', 'nname', 'surename')
+            ->select('user_id', 'nname', 'surename', 'is_active')
             ->where('role_id', 3)
             ->whereIn('team_id', $teamIds)
             ->orderBy('nname')
