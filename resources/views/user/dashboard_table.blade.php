@@ -297,13 +297,13 @@
                             <div class="col-md-4">
                                 <div class="form-group">
                                     <label>วันที่เริ่มติดต่อ <span class="text-danger">*</span></label>
-                                    <input type="text" name="contact_start_date" id="ef_contact_start_date" class="form-control" placeholder="dd/mm/yyyy" readonly required>
+                                    <input type="text" name="contact_start_date" id="ef_contact_start_date" class="form-control" placeholder="dd/mm/yyyy" required>
                                 </div>
                             </div>
                             <div class="col-md-4">
                                 <div class="form-group">
                                     <label>วันยื่น Bidding</label>
-                                    <input type="text" name="date_of_closing_of_sale" id="ef_date_of_closing_of_sale" class="form-control" placeholder="dd/mm/yyyy" readonly>
+                                    <input type="text" name="date_of_closing_of_sale" id="ef_date_of_closing_of_sale" class="form-control" placeholder="dd/mm/yyyy">
                                 </div>
                             </div>
                         </div>
@@ -312,7 +312,7 @@
                             <div class="col-md-4">
                                 <div class="form-group">
                                     <label>วันเซ็นสัญญา</label>
-                                    <input type="text" name="sales_can_be_close" id="ef_sales_can_be_close" class="form-control" placeholder="dd/mm/yyyy" readonly>
+                                    <input type="text" name="sales_can_be_close" id="ef_sales_can_be_close" class="form-control" placeholder="dd/mm/yyyy">
                                 </div>
                             </div>
                         </div>
@@ -484,28 +484,31 @@ $(function () {
         }
     };
 
+    function thaiDisplayDate(d) {
+        const day   = String(d.getDate()).padStart(2,'0');
+        const month = String(d.getMonth()+1).padStart(2,'0');
+        return day+'/'+month+'/'+(d.getFullYear()+543);
+    }
+
     function initEfFlatpickr(selector, defaultDate) {
         if (efFlatpickrs[selector]) { efFlatpickrs[selector].destroy(); }
         efFlatpickrs[selector] = flatpickr(selector, {
             dateFormat: 'Y-m-d',
             defaultDate: defaultDate || null,
             locale: fpLocale,
+            allowInput: false,
+            clickOpens: true,
+            disableMobile: false,
             onChange: function(sel, str, instance) {
                 if (sel.length > 0) {
-                    const d = sel[0];
-                    const day   = String(d.getDate()).padStart(2,'0');
-                    const month = String(d.getMonth()+1).padStart(2,'0');
                     instance.input.setAttribute('data-iso', str);
-                    instance.input.value = day+'/'+month+'/'+(d.getFullYear()+543);
+                    instance.input.value = thaiDisplayDate(sel[0]);
                 }
             },
             onReady: function(sel, str, instance) {
                 if (sel.length > 0) {
-                    const d = sel[0];
-                    const day   = String(d.getDate()).padStart(2,'0');
-                    const month = String(d.getMonth()+1).padStart(2,'0');
                     instance.input.setAttribute('data-iso', str);
-                    instance.input.value = day+'/'+month+'/'+(d.getFullYear()+543);
+                    instance.input.value = thaiDisplayDate(sel[0]);
                 }
             }
         });
@@ -579,7 +582,7 @@ $(function () {
                         <input type="checkbox" class="custom-control-input ef-step-chk" id="ef_step_${step.level_id}" name="step[${step.level_id}]" value="1" ${chk}>
                         <label class="custom-control-label" for="ef_step_${step.level_id}">${step.level}</label>
                     </div>
-                    <input type="text" name="step_date[${step.level_id}]" class="form-control form-control-sm mt-1 ef-step-date ${lockClass}" id="ef_step_date_${step.level_id}" data-iso="${dateV}" readonly>
+                    <input type="text" name="step_date[${step.level_id}]" class="form-control form-control-sm mt-1 ef-step-date ${lockClass}" id="ef_step_date_${step.level_id}" data-iso="${dateV}">
                 </div>`;
             });
             $('#ef_steps_container').html(stepsHtml);
