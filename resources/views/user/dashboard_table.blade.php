@@ -492,6 +492,9 @@ $(function () {
 
     function initEfFlatpickr(selector, defaultDate) {
         if (efFlatpickrs[selector]) { efFlatpickrs[selector].destroy(); }
+        const el = document.querySelector(selector);
+        console.log('[flatpickr] init', selector, 'el=', el, 'defaultDate=', defaultDate);
+        if (!el) { console.warn('[flatpickr] element not found:', selector); return; }
         efFlatpickrs[selector] = flatpickr(selector, {
             dateFormat: 'Y-m-d',
             defaultDate: defaultDate || null,
@@ -527,87 +530,122 @@ $(function () {
         });
     }
 
+    let pendingEditData = null;
+
+    function populateEditForm(data) {
+        const t = data.transaction;
+
+        // Text fields
+        $('#ef_Product_detail').val(t.Product_detail || '');
+        $('#ef_product_value').val(Number(t.product_value || 0).toLocaleString('en-US'));
+        $('#ef_remark').val(t.remark || '');
+        $('#ef_contact_person').val(t.contact_person || '');
+        $('#ef_contact_phone').val(t.contact_phone || '');
+        $('#ef_contact_email').val(t.contact_email || '');
+        $('#ef_contact_note').val(t.contact_note || '');
+
+        // Dropdowns
+        populateSelect('ef_company_id',      data.companies,  'company_id',       'company',      t.company_id);
+        populateSelect('ef_Product_id',       data.products,   'product_id',       'product',      t.Product_id);
+        populateSelect('ef_team_id',          data.teams,      'team_id',          'team',         t.team_id);
+        populateSelect('ef_priority_id',      data.priorities, 'priority_id',      'priority',     t.priority_id);
+        populateSelect('ef_Source_budget_id', data.sources,    'Source_budget_id', 'Source_budge', t.Source_budget_id);
+
+        // Year dropdown
+        const yearSel = document.getElementById('ef_fiscalyear');
+        yearSel.innerHTML = '';
+        const curYear = new Date().getFullYear();
+        for (let y = curYear - 2; y <= curYear + 5; y++) {
+            const opt = document.createElement('option');
+            opt.value = y; opt.text = y + 543;
+            if (y === parseInt(t.fiscalyear)) opt.selected = true;
+            yearSel.appendChild(opt);
+        }
+
+        // Steps HTML (no flatpickr yet)
+        let stepsHtml = '';
+        data.steps.forEach(function(step) {
+            const ts       = data.transactionSteps[step.level_id];
+            const chk      = ts ? 'checked' : '';
+            const lockClass = ts ? '' : 'ef-step-locked';
+            const dateV    = ts ? (ts.date || '') : '';
+            stepsHtml += `
+            <div class="col-md-3 mb-2">
+                <div class="custom-control custom-checkbox">
+                    <input type="checkbox" class="custom-control-input ef-step-chk" id="ef_step_${step.level_id}" name="step[${step.level_id}]" value="1" ${chk}>
+                    <label class="custom-control-label" for="ef_step_${step.level_id}">${step.level}</label>
+                </div>
+                <input type="text" name="step_date[${step.level_id}]" class="form-control form-control-sm mt-1 ef-step-date ${lockClass}" id="ef_step_date_${step.level_id}" data-iso="${dateV}">
+            </div>`;
+        });
+        $('#ef_steps_container').html(stepsHtml);
+
+        // Step checkbox toggle
+        $('#ef_steps_container').off('change', '.ef-step-chk').on('change', '.ef-step-chk', function() {
+            const lid = $(this).attr('id').replace('ef_step_', '');
+            const dateInp = $('#ef_step_date_' + lid);
+            if ($(this).is(':checked')) {
+                dateInp.removeClass('ef-step-locked');
+                initEfFlatpickr('#ef_step_date_' + lid, null);
+            } else {
+                dateInp.addClass('ef-step-locked').val('').removeAttr('data-iso');
+                if (efFlatpickrs['#ef_step_date_' + lid]) {
+                    efFlatpickrs['#ef_step_date_' + lid].clear();
+                }
+            }
+        });
+    }
+
+    function initAllFlatpickrs(data) {
+        const t = data.transaction;
+        initEfFlatpickr('#ef_contact_start_date',      t.contact_start_date || null);
+        initEfFlatpickr('#ef_date_of_closing_of_sale', t.date_of_closing_of_sale || null);
+        initEfFlatpickr('#ef_sales_can_be_close',      t.sales_can_be_close || null);
+
+        data.steps.forEach(function(step) {
+            const ts = data.transactionSteps[step.level_id];
+            if (ts) {
+                initEfFlatpickr('#ef_step_date_' + step.level_id, ts.date || null);
+            }
+        });
+    }
+
+    // Init flatpickr only after modal is fully visible (fixes mobile Safari/Chrome)
+    $('#editModal').on('shown.bs.modal', function() {
+        console.log('[editModal] shown.bs.modal fired, pendingEditData=', pendingEditData ? 'yes' : 'null');
+        if (pendingEditData) {
+            initAllFlatpickrs(pendingEditData);
+        }
+    });
+
+    $('#editModal').on('hidden.bs.modal', function() {
+        pendingEditData = null;
+        Object.keys(efFlatpickrs).forEach(function(key) {
+            if (efFlatpickrs[key]) { efFlatpickrs[key].destroy(); }
+        });
+        efFlatpickrs = {};
+    });
+
     function openEditModal(id) {
+        pendingEditData = null;
+        console.log('[editModal] openEditModal id=', id);
         $('#editFormAlert').hide();
         $('#editForm')[0].reset();
         $('#ef_steps_container').html('<div class="col-12 text-center py-2"><i class="fas fa-spinner fa-spin"></i> กำลังโหลด...</div>');
-        $('#editModal').modal('show');
         $('#editForm').data('id', id);
+        $('#editModal').modal('show');
 
         $.getJSON('/user/sales/' + id + '/edit-data', function(data) {
-            const t = data.transaction;
-
-            // Text fields
-            $('#ef_Product_detail').val(t.Product_detail || '');
-            $('#ef_product_value').val(Number(t.product_value || 0).toLocaleString('en-US'));
-            $('#ef_remark').val(t.remark || '');
-            $('#ef_contact_person').val(t.contact_person || '');
-            $('#ef_contact_phone').val(t.contact_phone || '');
-            $('#ef_contact_email').val(t.contact_email || '');
-            $('#ef_contact_note').val(t.contact_note || '');
-
-            // Dropdowns
-            populateSelect('ef_company_id',       data.companies,  'company_id',       'company',       t.company_id);
-            populateSelect('ef_Product_id',        data.products,   'product_id',       'product',       t.Product_id);
-            populateSelect('ef_team_id',           data.teams,      'team_id',          'team',          t.team_id);
-            populateSelect('ef_priority_id',       data.priorities, 'priority_id',      'priority',      t.priority_id);
-            populateSelect('ef_Source_budget_id',  data.sources,    'Source_budget_id', 'Source_budge',  t.Source_budget_id);
-
-            // Year dropdown
-            const yearSel = document.getElementById('ef_fiscalyear');
-            yearSel.innerHTML = '';
-            const curYear = new Date().getFullYear();
-            for (let y = curYear - 2; y <= curYear + 5; y++) {
-                const opt = document.createElement('option');
-                opt.value = y; opt.text = y + 543;
-                if (y === parseInt(t.fiscalyear)) opt.selected = true;
-                yearSel.appendChild(opt);
+            console.log('[editModal] AJAX ok, modal.show=', $('#editModal').hasClass('show'));
+            pendingEditData = data;
+            populateEditForm(data);
+            // If modal already shown (AJAX returned after shown), init immediately
+            if ($('#editModal').hasClass('show')) {
+                console.log('[editModal] modal already shown -> initAllFlatpickrs now');
+                initAllFlatpickrs(data);
             }
-
-            // Date pickers
-            initEfFlatpickr('#ef_contact_start_date',      t.contact_start_date || null);
-            initEfFlatpickr('#ef_date_of_closing_of_sale', t.date_of_closing_of_sale || null);
-            initEfFlatpickr('#ef_sales_can_be_close',      t.sales_can_be_close || null);
-
-            // Steps
-            let stepsHtml = '';
-            data.steps.forEach(function(step) {
-                const ts    = data.transactionSteps[step.level_id];
-                const chk   = ts ? 'checked' : '';
-                const lockClass = ts ? '' : 'ef-step-locked';
-                const dateV = ts ? (ts.date || '') : '';
-                stepsHtml += `
-                <div class="col-md-3 mb-2">
-                    <div class="custom-control custom-checkbox">
-                        <input type="checkbox" class="custom-control-input ef-step-chk" id="ef_step_${step.level_id}" name="step[${step.level_id}]" value="1" ${chk}>
-                        <label class="custom-control-label" for="ef_step_${step.level_id}">${step.level}</label>
-                    </div>
-                    <input type="text" name="step_date[${step.level_id}]" class="form-control form-control-sm mt-1 ef-step-date ${lockClass}" id="ef_step_date_${step.level_id}" data-iso="${dateV}">
-                </div>`;
-            });
-            $('#ef_steps_container').html(stepsHtml);
-
-            // Init flatpickr for each step date
-            data.steps.forEach(function(step) {
-                const ts = data.transactionSteps[step.level_id];
-                initEfFlatpickr('#ef_step_date_' + step.level_id, ts ? ts.date : null);
-            });
-
-            // Step checkbox toggle
-            $('#ef_steps_container').off('change', '.ef-step-chk').on('change', '.ef-step-chk', function() {
-                const lid = $(this).attr('id').replace('ef_step_', '');
-                const dateInp = $('#ef_step_date_' + lid);
-                if ($(this).is(':checked')) {
-                    dateInp.removeClass('ef-step-locked');
-                } else {
-                    dateInp.addClass('ef-step-locked').val('');
-                    dateInp.removeAttr('data-iso');
-                    if (efFlatpickrs['#ef_step_date_' + lid]) {
-                        efFlatpickrs['#ef_step_date_' + lid].clear();
-                    }
-                }
-            });
-        }).fail(function() {
+        }).fail(function(xhr) {
+            console.error('[editModal] AJAX fail', xhr.status, xhr.responseText);
             $('#editFormAlert').text('ไม่สามารถโหลดข้อมูลได้').show();
         });
     }
