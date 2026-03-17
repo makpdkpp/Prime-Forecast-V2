@@ -492,9 +492,6 @@ $(function () {
 
     function initEfFlatpickr(selector, defaultDate) {
         if (efFlatpickrs[selector]) { efFlatpickrs[selector].destroy(); }
-        const el = document.querySelector(selector);
-        console.log('[flatpickr] init', selector, 'el=', el, 'defaultDate=', defaultDate);
-        if (!el) { console.warn('[flatpickr] element not found:', selector); return; }
         efFlatpickrs[selector] = flatpickr(selector, {
             dateFormat: 'Y-m-d',
             defaultDate: defaultDate || null,
@@ -612,7 +609,6 @@ $(function () {
 
     // Init flatpickr only after modal is fully visible (fixes mobile Safari/Chrome)
     $('#editModal').on('shown.bs.modal', function() {
-        console.log('[editModal] shown.bs.modal fired, pendingEditData=', pendingEditData ? 'yes' : 'null');
         if (pendingEditData) {
             initAllFlatpickrs(pendingEditData);
         }
@@ -628,7 +624,6 @@ $(function () {
 
     function openEditModal(id) {
         pendingEditData = null;
-        console.log('[editModal] openEditModal id=', id);
         $('#editFormAlert').hide();
         $('#editForm')[0].reset();
         $('#ef_steps_container').html('<div class="col-12 text-center py-2"><i class="fas fa-spinner fa-spin"></i> กำลังโหลด...</div>');
@@ -636,16 +631,13 @@ $(function () {
         $('#editModal').modal('show');
 
         $.getJSON('/user/sales/' + id + '/edit-data', function(data) {
-            console.log('[editModal] AJAX ok, modal.show=', $('#editModal').hasClass('show'));
             pendingEditData = data;
             populateEditForm(data);
             // If modal already shown (AJAX returned after shown), init immediately
             if ($('#editModal').hasClass('show')) {
-                console.log('[editModal] modal already shown -> initAllFlatpickrs now');
                 initAllFlatpickrs(data);
             }
-        }).fail(function(xhr) {
-            console.error('[editModal] AJAX fail', xhr.status, xhr.responseText);
+        }).fail(function() {
             $('#editFormAlert').text('ไม่สามารถโหลดข้อมูลได้').show();
         });
     }
