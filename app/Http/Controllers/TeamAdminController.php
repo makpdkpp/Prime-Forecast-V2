@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
+use Maatwebsite\Excel\Facades\Excel;
 
 class TeamAdminController extends Controller
 {
@@ -1069,5 +1070,236 @@ class TeamAdminController extends Controller
         } catch (\Exception $e) {
             return redirect()->back()->with('error', 'เกิดข้อผิดพลาด: ' . $e->getMessage());
         }
+    }
+
+    // ─── Reports ─────────────────────────────────────────────────────────────
+
+    private function getMyTeamIds(): array
+    {
+        $user = Auth::user();
+        return DB::table('transactional_team')
+            ->where('user_id', $user->user_id)
+            ->pluck('team_id')
+            ->toArray();
+    }
+
+    private function getTeamUsers(array $teamIds): \Illuminate\Support\Collection
+    {
+        return DB::table('user')
+            ->select('user_id', 'nname', 'surename')
+            ->where('role_id', 3)
+            ->whereIn('team_id', $teamIds)
+            ->orderBy('nname')
+            ->orderBy('surename')
+            ->get();
+    }
+
+    public function reportBidding(Request $request)
+    {
+        $teamIds = $this->getMyTeamIds();
+        $availableUsers = $this->getTeamUsers($teamIds);
+        return view('teamadmin.reports.bidding', compact('availableUsers'));
+    }
+
+    public function reportBiddingData(Request $request)
+    {
+        $request->validate([
+            'user_id'     => 'nullable|integer|exists:user,user_id',
+            'date_from'   => 'nullable|date_format:Y-m-d',
+            'date_to'     => 'nullable|date_format:Y-m-d',
+            'export_type' => 'nullable|in:excel',
+        ]);
+
+        $teamIds    = $this->getMyTeamIds();
+        $userId     = $request->integer('user_id') ?: null;
+        $dateFrom   = $request->get('date_from');
+        $dateTo     = $request->get('date_to');
+        $exportType = $request->get('export_type');
+
+        if ($exportType === 'excel') {
+            return Excel::download(
+                new \App\Exports\TeamAdmin\BiddingTeamExport($teamIds, $userId, $dateFrom, $dateTo),
+                'รายงานวันยื่น_Bidding_' . date('Y-m-d') . '.xlsx'
+            );
+        }
+
+        $query = DB::table('transactional as t')
+            ->leftJoin('company_catalog as c', 't.company_id', '=', 'c.company_id')
+            ->leftJoin('user as u', 't.user_id', '=', 'u.user_id')
+            ->select([
+                't.Product_detail as project_name',
+                'c.company as company_name',
+                't.product_value as value',
+                't.date_of_closing_of_sale as bidding_date',
+                DB::raw("CONCAT(u.nname, ' ', u.surename) as user_name"),
+            ])
+            ->whereNotNull('t.date_of_closing_of_sale')
+            ->whereIn('t.team_id', $teamIds);
+
+        if ($userId) {
+            $query->where('t.user_id', $userId);
+        }
+        if ($dateFrom) {
+            $query->where('t.date_of_closing_of_sale', '>=', $dateFrom);
+        }
+        if ($dateTo) {
+            $query->where('t.date_of_closing_of_sale', '<=', $dateTo);
+        }
+
+        $data = $query->orderBy('t.date_of_closing_of_sale', 'desc')->get();
+
+        return response()->json([
+            'data' => $data->map(function ($item) {
+                return [
+                    'project_name' => $item->project_name ?? '-',
+                    'company_name' => $item->company_name ?? '-',
+                    'value'        => number_format($item->value ?? 0, 2),
+                    'bidding_date' => $item->bidding_date ? \Carbon\Carbon::parse($item->bidding_date)->format('d/m/Y') : '-',
+                    'user_name'    => $item->user_name ?? '-',
+                ];
+            }),
+        ]);
+    }
+
+    public function reportContract(Request $request)
+    {
+        $teamIds = $this->getMyTeamIds();
+        $availableUsers = $this->getTeamUsers($teamIds);
+        return view('teamadmin.reports.contract', compact('availableUsers'));
+    }
+
+    public function reportContractData(Request $request)
+    {
+        $request->validate([
+            'user_id'     => 'nullable|integer|exists:user,user_id',
+            'date_from'   => 'nullable|date_format:Y-m-d',
+            'date_to'     => 'nullable|date_format:Y-m-d',
+            'export_type' => 'nullable|in:excel',
+        ]);
+
+        $teamIds    = $this->getMyTeamIds();
+        $userId     = $request->integer('user_id') ?: null;
+        $dateFrom   = $request->get('date_from');
+        $dateTo     = $request->get('date_to');
+        $exportType = $request->get('export_type');
+
+        if ($exportType === 'excel') {
+            return Excel::download(
+                new \App\Exports\TeamAdmin\ContractTeamExport($teamIds, $userId, $dateFrom, $dateTo),
+                'รายงานวันเซ็นสัญญา_' . date('Y-m-d') . '.xlsx'
+            );
+        }
+
+        $query = DB::table('transactional as t')
+            ->leftJoin('company_catalog as c', 't.company_id', '=', 'c.company_id')
+            ->leftJoin('user as u', 't.user_id', '=', 'u.user_id')
+            ->select([
+                't.Product_detail as project_name',
+                'c.company as company_name',
+                't.product_value as value',
+                't.sales_can_be_close as contract_date',
+                DB::raw("CONCAT(u.nname, ' ', u.surename) as user_name"),
+            ])
+            ->whereNotNull('t.sales_can_be_close')
+            ->whereIn('t.team_id', $teamIds);
+
+        if ($userId) {
+            $query->where('t.user_id', $userId);
+        }
+        if ($dateFrom) {
+            $query->where('t.sales_can_be_close', '>=', $dateFrom);
+        }
+        if ($dateTo) {
+            $query->where('t.sales_can_be_close', '<=', $dateTo);
+        }
+
+        $data = $query->orderBy('t.sales_can_be_close', 'desc')->get();
+
+        return response()->json([
+            'data' => $data->map(function ($item) {
+                return [
+                    'project_name'  => $item->project_name ?? '-',
+                    'company_name'  => $item->company_name ?? '-',
+                    'value'         => number_format($item->value ?? 0, 2),
+                    'contract_date' => $item->contract_date ? \Carbon\Carbon::parse($item->contract_date)->format('d/m/Y') : '-',
+                    'user_name'     => $item->user_name ?? '-',
+                ];
+            }),
+        ]);
+    }
+
+    public function reportWindate(Request $request)
+    {
+        $teamIds = $this->getMyTeamIds();
+        $availableUsers = $this->getTeamUsers($teamIds);
+        return view('teamadmin.reports.windate', compact('availableUsers'));
+    }
+
+    public function reportWindateData(Request $request)
+    {
+        $request->validate([
+            'user_id'     => 'nullable|integer|exists:user,user_id',
+            'date_from'   => 'nullable|date_format:Y-m-d',
+            'date_to'     => 'nullable|date_format:Y-m-d',
+            'export_type' => 'nullable|in:excel',
+        ]);
+
+        $teamIds    = $this->getMyTeamIds();
+        $userId     = $request->integer('user_id') ?: null;
+        $dateFrom   = $request->get('date_from');
+        $dateTo     = $request->get('date_to');
+        $exportType = $request->get('export_type');
+
+        if ($exportType === 'excel') {
+            return Excel::download(
+                new \App\Exports\TeamAdmin\WindateTeamExport($teamIds, $userId, $dateFrom, $dateTo),
+                'รายงาน_Windate_' . date('Y-m-d') . '.xlsx'
+            );
+        }
+
+        $winSub = DB::table('transactional_step as ts')
+            ->join('step as s', 's.level_id', '=', 'ts.level_id')
+            ->where('s.level', 5)
+            ->select('ts.transac_id', DB::raw('MAX(ts.transacstep_id) as max_step_id'))
+            ->groupBy('ts.transac_id');
+
+        $query = DB::table('transactional as t')
+            ->joinSub($winSub, 'win_latest', 'win_latest.transac_id', '=', 't.transac_id')
+            ->join('transactional_step as ts_win', 'ts_win.transacstep_id', '=', 'win_latest.max_step_id')
+            ->leftJoin('company_catalog as c', 't.company_id', '=', 'c.company_id')
+            ->leftJoin('user as u', 't.user_id', '=', 'u.user_id')
+            ->select([
+                't.Product_detail as project_name',
+                'c.company as company_name',
+                't.product_value as value',
+                'ts_win.date as win_date',
+                DB::raw("CONCAT(u.nname, ' ', u.surename) as user_name"),
+            ])
+            ->whereNull('t.deleted_at')
+            ->whereIn('t.team_id', $teamIds);
+
+        if ($userId) {
+            $query->where('t.user_id', $userId);
+        }
+        if ($dateFrom) {
+            $query->where('ts_win.date', '>=', $dateFrom);
+        }
+        if ($dateTo) {
+            $query->where('ts_win.date', '<=', $dateTo);
+        }
+
+        $data = $query->orderBy('ts_win.date', 'desc')->get();
+
+        return response()->json([
+            'data' => $data->map(function ($item) {
+                return [
+                    'project_name' => $item->project_name ?? '-',
+                    'company_name' => $item->company_name ?? '-',
+                    'value'        => number_format($item->value ?? 0, 2),
+                    'win_date'     => $item->win_date ? \Carbon\Carbon::parse($item->win_date)->format('d/m/Y') : '-',
+                    'user_name'    => $item->user_name ?? '-',
+                ];
+            }),
+        ]);
     }
 }

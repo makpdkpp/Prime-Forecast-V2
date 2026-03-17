@@ -110,6 +110,14 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/profile', [TeamAdminController::class, 'profile'])->name('profile');
         Route::put('/profile', [TeamAdminController::class, 'updateProfile'])->name('profile.update');
         Route::post('/profile/toggle-2fa', [TeamAdminController::class, 'toggleTwoFactor'])->name('profile.toggle-2fa');
+
+        // Reports
+        Route::get('/reports/bidding', [TeamAdminController::class, 'reportBidding'])->name('reports.bidding');
+        Route::post('/reports/bidding/data', [TeamAdminController::class, 'reportBiddingData'])->name('reports.bidding.data');
+        Route::get('/reports/contract', [TeamAdminController::class, 'reportContract'])->name('reports.contract');
+        Route::post('/reports/contract/data', [TeamAdminController::class, 'reportContractData'])->name('reports.contract.data');
+        Route::get('/reports/windate', [TeamAdminController::class, 'reportWindate'])->name('reports.windate');
+        Route::post('/reports/windate/data', [TeamAdminController::class, 'reportWindateData'])->name('reports.windate.data');
     });
     
     // User routes (role_id = 3)
