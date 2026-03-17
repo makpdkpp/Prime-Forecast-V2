@@ -571,7 +571,7 @@ $(function () {
             data.steps.forEach(function(step) {
                 const ts    = data.transactionSteps[step.level_id];
                 const chk   = ts ? 'checked' : '';
-                const dis   = ts ? '' : 'disabled';
+                const lockClass = ts ? '' : 'ef-step-locked';
                 const dateV = ts ? (ts.date || '') : '';
                 stepsHtml += `
                 <div class="col-md-3 mb-2">
@@ -579,7 +579,7 @@ $(function () {
                         <input type="checkbox" class="custom-control-input ef-step-chk" id="ef_step_${step.level_id}" name="step[${step.level_id}]" value="1" ${chk}>
                         <label class="custom-control-label" for="ef_step_${step.level_id}">${step.level}</label>
                     </div>
-                    <input type="text" name="step_date[${step.level_id}]" class="form-control form-control-sm mt-1 ef-step-date" id="ef_step_date_${step.level_id}" data-iso="${dateV}" ${dis} readonly>
+                    <input type="text" name="step_date[${step.level_id}]" class="form-control form-control-sm mt-1 ef-step-date ${lockClass}" id="ef_step_date_${step.level_id}" data-iso="${dateV}" readonly>
                 </div>`;
             });
             $('#ef_steps_container').html(stepsHtml);
@@ -595,9 +595,10 @@ $(function () {
                 const lid = $(this).attr('id').replace('ef_step_', '');
                 const dateInp = $('#ef_step_date_' + lid);
                 if ($(this).is(':checked')) {
-                    dateInp.prop('disabled', false);
+                    dateInp.removeClass('ef-step-locked');
                 } else {
-                    dateInp.prop('disabled', true).val('');
+                    dateInp.addClass('ef-step-locked').val('');
+                    dateInp.removeAttr('data-iso');
                     if (efFlatpickrs['#ef_step_date_' + lid]) {
                         efFlatpickrs['#ef_step_date_' + lid].clear();
                     }
@@ -630,6 +631,14 @@ $(function () {
         $('#editFormSaveSpinner').show();
 
         // Collect form data, convert dates to ISO
+        // Zero out step_date values for unchecked steps before collecting
+        $('#ef_steps_container .ef-step-date').each(function() {
+            const chkId = 'ef_step_' + this.id.replace('ef_step_date_', '');
+            if (!$('#' + chkId).is(':checked')) {
+                $(this).val('').removeAttr('data-iso');
+            }
+        });
+
         const formData = {};
         $(this).serializeArray().forEach(function(field) {
             // For date fields, use data-iso attribute (ISO format) instead of display value
@@ -710,6 +719,12 @@ $(function () {
     .table-responsive {
         overflow-x: auto;
         -webkit-overflow-scrolling: touch;
+    }
+    .ef-step-locked {
+        pointer-events: none;
+        opacity: 0.45;
+        background-color: #e9ecef;
+        cursor: not-allowed;
     }
 </style>
 @stop
