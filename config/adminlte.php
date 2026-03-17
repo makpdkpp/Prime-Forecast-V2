@@ -349,7 +349,7 @@ return [
                     'url' => 'admin/reports/contract',
                 ],
                 [
-                    'text' => 'Windate',
+                    'text' => 'WIN',
                     'url' => 'admin/reports/windate',
                 ],
             ],
