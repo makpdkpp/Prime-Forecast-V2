@@ -582,6 +582,117 @@ class UserController extends Controller
         ));
     }
 
+    public function getEditDataAjax($id)
+    {
+        $transaction = Transactional::where('transac_id', $id)
+            ->where('user_id', auth()->id())
+            ->firstOrFail();
+
+        $companies  = \Cache::remember('companies_list',  3600, fn() => CompanyCatalog::orderBy('company')->get());
+        $products   = \Cache::remember('products_list',   3600, fn() => ProductGroup::orderBy('product')->get());
+        $priorities = \Cache::remember('priorities_list', 3600, fn() => PriorityLevel::orderBy('priority')->get());
+        $sources    = \Cache::remember('sources_list',    3600, fn() => SourceBudget::orderBy('Source_budge')->get());
+        $steps      = \Cache::remember('steps_list',      3600, fn() => Step::orderBy('orderlv')->get());
+
+        $teamIds = TransactionalTeam::where('user_id', auth()->id())->pluck('team_id');
+        $teams   = TeamCatalog::whereIn('team_id', $teamIds)->orderBy('team')->get();
+
+        $transactionSteps = TransactionalStep::where('transac_id', $id)
+            ->get()
+            ->keyBy('level_id')
+            ->map(fn($ts) => [
+                'level_id' => $ts->level_id,
+                'date'     => $ts->date ? \Carbon\Carbon::parse($ts->date)->format('Y-m-d') : null,
+            ]);
+
+        return response()->json([
+            'transaction'      => $transaction,
+            'companies'        => $companies,
+            'products'         => $products,
+            'priorities'       => $priorities,
+            'sources'          => $sources,
+            'steps'            => $steps->map(fn($s) => ['level_id' => $s->level_id, 'level' => $s->level]),
+            'teams'            => $teams,
+            'transactionSteps' => $transactionSteps,
+        ]);
+    }
+
+    public function updateSalesAjax(Request $request, $id)
+    {
+        $transaction = Transactional::where('transac_id', $id)
+            ->where('user_id', auth()->id())
+            ->firstOrFail();
+
+        $validator = \Validator::make($request->all(), [
+            'Product_detail'           => 'required|max:255',
+            'company_id'               => 'required|integer',
+            'product_value'            => 'required',
+            'Source_budget_id'         => 'required|integer',
+            'fiscalyear'               => 'required|integer',
+            'Product_id'               => 'required|integer',
+            'team_id'                  => 'required|integer',
+            'priority_id'              => 'nullable|integer',
+            'contact_start_date'       => 'required|date',
+            'date_of_closing_of_sale'  => 'nullable|date',
+            'sales_can_be_close'       => 'nullable|date',
+            'step_date'                => 'nullable|array',
+            'step_date.*'              => 'nullable|date',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['success' => false, 'errors' => $validator->errors()], 422);
+        }
+
+        try {
+            $productValue = str_replace(',', '', $request->product_value);
+
+            $stepId = null;
+            if ($request->has('step') && is_array($request->step)) {
+                $selectedSteps = array_keys(array_filter($request->step));
+                if (!empty($selectedSteps)) {
+                    $stepId = max($selectedSteps);
+                }
+            }
+
+            $transaction->update([
+                'company_id'               => $request->company_id,
+                'Product_id'               => $request->Product_id,
+                'team_id'                  => $request->team_id,
+                'priority_id'              => $request->priority_id,
+                'Source_budget_id'         => $request->Source_budget_id,
+                'Product_detail'           => $request->Product_detail,
+                'product_value'            => $productValue,
+                'fiscalyear'               => $request->fiscalyear,
+                'contact_start_date'       => $request->contact_start_date,
+                'date_of_closing_of_sale'  => $request->date_of_closing_of_sale ?: null,
+                'sales_can_be_close'       => $request->sales_can_be_close ?: null,
+                'remark'                   => $request->remark ?? '',
+                'contact_person'           => $request->contact_person,
+                'contact_phone'            => $request->contact_phone,
+                'contact_email'            => $request->contact_email,
+                'contact_note'             => $request->contact_note,
+                'Step_id'                  => $stepId ?? $transaction->Step_id,
+            ]);
+
+            TransactionalStep::where('transac_id', $id)->delete();
+            if ($request->has('step') && is_array($request->step)) {
+                foreach ($request->step as $levelId => $value) {
+                    if ($value && isset($request->step_date[$levelId]) && $request->step_date[$levelId]) {
+                        TransactionalStep::create([
+                            'transac_id' => $id,
+                            'level_id'   => $levelId,
+                            'date'       => $request->step_date[$levelId],
+                        ]);
+                    }
+                }
+            }
+
+            return response()->json(['success' => true, 'message' => 'อัพเดทข้อมูลเรียบร้อยแล้ว']);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => 'เกิดข้อผิดพลาด: ' . $e->getMessage()], 500);
+        }
+    }
+
     public function updateSales(Request $request, $id)
     {
         $transaction = Transactional::where('transac_id', $id)

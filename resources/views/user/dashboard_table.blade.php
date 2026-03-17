@@ -205,15 +205,175 @@
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <a id="modal-edit-btn" href="#" class="btn btn-info"><i class="fas fa-pencil-alt"></i> แก้ไข</a>
+                    <button type="button" id="modal-edit-btn" class="btn btn-info" data-id=""><i class="fas fa-pencil-alt"></i> แก้ไข</button>
                     <button type="button" class="btn btn-secondary" data-dismiss="modal">ปิด</button>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Modal -->
+    <div class="modal fade" id="editModal" tabindex="-1" role="dialog" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable" role="document">
+            <div class="modal-content">
+                <div class="modal-header bg-info text-white">
+                    <h5 class="modal-title"><i class="fas fa-pencil-alt"></i> แก้ไขข้อมูลการขาย</h5>
+                    <button type="button" class="close text-white" data-dismiss="modal"><span>&times;</span></button>
+                </div>
+                <form id="editForm" autocomplete="off">
+                    @csrf
+                    <input type="hidden" name="_method" value="PUT">
+                    <div class="modal-body" style="overflow-y:auto; max-height:70vh;">
+                        <div id="editFormAlert" class="alert alert-danger" style="display:none;"></div>
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label>ชื่อโครงการ <span class="text-danger">*</span></label>
+                                    <input type="text" name="Product_detail" id="ef_Product_detail" class="form-control" required>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label>หน่วยงาน / บริษัท <span class="text-danger">*</span></label>
+                                    <select name="company_id" id="ef_company_id" class="form-control" required>
+                                        <option value="">-- เลือกบริษัท/หน่วยงาน --</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label>กลุ่มสินค้า <span class="text-danger">*</span></label>
+                                    <select name="Product_id" id="ef_Product_id" class="form-control" required>
+                                        <option value="">-- เลือกกลุ่มสินค้า --</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label>มูลค่าโครงการ (บาท) <span class="text-danger">*</span></label>
+                                    <input type="text" name="product_value" id="ef_product_value" class="form-control" required>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label>ทีมขาย <span class="text-danger">*</span></label>
+                                    <select name="team_id" id="ef_team_id" class="form-control" required>
+                                        <option value="">-- เลือกทีม --</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label>โอกาสการชนะ</label>
+                                    <select name="priority_id" id="ef_priority_id" class="form-control">
+                                        <option value="">-- เลือกโอกาส --</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label>ที่มาของงบประมาณ <span class="text-danger">*</span></label>
+                                    <select name="Source_budget_id" id="ef_Source_budget_id" class="form-control" required>
+                                        <option value="">-- เลือกที่มา --</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label>ปีงบประมาณ <span class="text-danger">*</span></label>
+                                    <select name="fiscalyear" id="ef_fiscalyear" class="form-control" required></select>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label>วันที่เริ่มติดต่อ <span class="text-danger">*</span></label>
+                                    <input type="text" name="contact_start_date" id="ef_contact_start_date" class="form-control" placeholder="dd/mm/yyyy" readonly required>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label>วันยื่น Bidding</label>
+                                    <input type="text" name="date_of_closing_of_sale" id="ef_date_of_closing_of_sale" class="form-control" placeholder="dd/mm/yyyy" readonly>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label>วันเซ็นสัญญา</label>
+                                    <input type="text" name="sales_can_be_close" id="ef_sales_can_be_close" class="form-control" placeholder="dd/mm/yyyy" readonly>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label>ขั้นตอนการขาย</label>
+                            <div class="row" id="ef_steps_container"></div>
+                        </div>
+
+                        <div class="form-group">
+                            <label>หมายเหตุ</label>
+                            <textarea name="remark" id="ef_remark" class="form-control" rows="2"></textarea>
+                        </div>
+
+                        <div class="card mt-2">
+                            <div class="card-header bg-light py-2">
+                                <strong><i class="fas fa-user-tie"></i> ข้อมูลลูกค้า (ไม่บังคับ)</strong>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-4">
+                                        <div class="form-group">
+                                            <label>ชื่อผู้ติดต่อ</label>
+                                            <input type="text" name="contact_person" id="ef_contact_person" class="form-control" placeholder="ชื่อ-นามสกุล">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="form-group">
+                                            <label>เบอร์โทรศัพท์</label>
+                                            <input type="text" name="contact_phone" id="ef_contact_phone" class="form-control" placeholder="0xx-xxx-xxxx">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="form-group">
+                                            <label>อีเมล</label>
+                                            <input type="email" name="contact_email" id="ef_contact_email" class="form-control" placeholder="email@example.com">
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="form-group mb-0">
+                                    <label>อื่นๆ</label>
+                                    <textarea name="contact_note" id="ef_contact_note" rows="2" class="form-control"></textarea>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-dismiss="modal">ยกเลิก</button>
+                        <button type="submit" class="btn btn-primary" id="editFormSaveBtn">
+                            <span id="editFormSaveTxt"><i class="fas fa-save"></i> บันทึก</span>
+                            <span id="editFormSaveSpinner" class="spinner-border spinner-border-sm ml-1" style="display:none;"></span>
+                        </button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>
 @stop
 
 @section('js')
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 <script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.7/js/dataTables.bootstrap4.min.js"></script>
 <script src="https://cdn.datatables.net/responsive/2.5.0/js/dataTables.responsive.min.js"></script>
@@ -297,12 +457,223 @@ $(function () {
         $('#modal-contact-phone').text(row.contact_phone || '-');
         $('#modal-contact-email').text(row.contact_email || '-');
         $('#modal-remark').text(row.remark || '-');
-
-        // Update edit button href
-        const editUrl = $(row.action).attr('href');
-        if (editUrl) $('#modal-edit-btn').attr('href', editUrl);
+        $('#modal-edit-btn').data('id', row.id);
 
         $('#viewDetailModal').modal('show');
+    });
+
+    // Click แก้ไข in View Detail Modal → open Edit Modal
+    $('#modal-edit-btn').on('click', function() {
+        const id = $(this).data('id');
+        if (!id) return;
+        $('#viewDetailModal').modal('hide');
+        openEditModal(id);
+    });
+
+    // ---- Edit Modal Logic ----
+    let efFlatpickrs = {};
+    const fpLocale = {
+        firstDayOfWeek: 1,
+        weekdays: {
+            shorthand: ['อา','จ','อ','พ','พฤ','ศ','ส'],
+            longhand:  ['อาทิตย์','จันทร์','อังคาร','พุธ','พฤหัสบดี','ศุกร์','เสาร์']
+        },
+        months: {
+            shorthand: ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'],
+            longhand:  ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม']
+        }
+    };
+
+    function initEfFlatpickr(selector, defaultDate) {
+        if (efFlatpickrs[selector]) { efFlatpickrs[selector].destroy(); }
+        efFlatpickrs[selector] = flatpickr(selector, {
+            dateFormat: 'Y-m-d',
+            defaultDate: defaultDate || null,
+            locale: fpLocale,
+            onChange: function(sel, str, instance) {
+                if (sel.length > 0) {
+                    const d = sel[0];
+                    const day   = String(d.getDate()).padStart(2,'0');
+                    const month = String(d.getMonth()+1).padStart(2,'0');
+                    instance.input.setAttribute('data-iso', str);
+                    instance.input.value = day+'/'+month+'/'+(d.getFullYear()+543);
+                }
+            },
+            onReady: function(sel, str, instance) {
+                if (sel.length > 0) {
+                    const d = sel[0];
+                    const day   = String(d.getDate()).padStart(2,'0');
+                    const month = String(d.getMonth()+1).padStart(2,'0');
+                    instance.input.setAttribute('data-iso', str);
+                    instance.input.value = day+'/'+month+'/'+(d.getFullYear()+543);
+                }
+            }
+        });
+    }
+
+    function populateSelect(selectId, items, valueKey, labelKey, selectedValue) {
+        const sel = document.getElementById(selectId);
+        const firstOpt = sel.options[0].outerHTML;
+        sel.innerHTML = firstOpt;
+        items.forEach(function(item) {
+            const opt = document.createElement('option');
+            opt.value = item[valueKey];
+            opt.text  = item[labelKey];
+            if (String(item[valueKey]) === String(selectedValue)) opt.selected = true;
+            sel.appendChild(opt);
+        });
+    }
+
+    function openEditModal(id) {
+        $('#editFormAlert').hide();
+        $('#editForm')[0].reset();
+        $('#ef_steps_container').html('<div class="col-12 text-center py-2"><i class="fas fa-spinner fa-spin"></i> กำลังโหลด...</div>');
+        $('#editModal').modal('show');
+        $('#editForm').data('id', id);
+
+        $.getJSON('/user/sales/' + id + '/edit-data', function(data) {
+            const t = data.transaction;
+
+            // Text fields
+            $('#ef_Product_detail').val(t.Product_detail || '');
+            $('#ef_product_value').val(Number(t.product_value || 0).toLocaleString('en-US'));
+            $('#ef_remark').val(t.remark || '');
+            $('#ef_contact_person').val(t.contact_person || '');
+            $('#ef_contact_phone').val(t.contact_phone || '');
+            $('#ef_contact_email').val(t.contact_email || '');
+            $('#ef_contact_note').val(t.contact_note || '');
+
+            // Dropdowns
+            populateSelect('ef_company_id',       data.companies,  'company_id',       'company',       t.company_id);
+            populateSelect('ef_Product_id',        data.products,   'product_id',       'product',       t.Product_id);
+            populateSelect('ef_team_id',           data.teams,      'team_id',          'team',          t.team_id);
+            populateSelect('ef_priority_id',       data.priorities, 'priority_id',      'priority',      t.priority_id);
+            populateSelect('ef_Source_budget_id',  data.sources,    'Source_budget_id', 'Source_budge',  t.Source_budget_id);
+
+            // Year dropdown
+            const yearSel = document.getElementById('ef_fiscalyear');
+            yearSel.innerHTML = '';
+            const curYear = new Date().getFullYear();
+            for (let y = curYear - 2; y <= curYear + 5; y++) {
+                const opt = document.createElement('option');
+                opt.value = y; opt.text = y + 543;
+                if (y === parseInt(t.fiscalyear)) opt.selected = true;
+                yearSel.appendChild(opt);
+            }
+
+            // Date pickers
+            initEfFlatpickr('#ef_contact_start_date',      t.contact_start_date || null);
+            initEfFlatpickr('#ef_date_of_closing_of_sale', t.date_of_closing_of_sale || null);
+            initEfFlatpickr('#ef_sales_can_be_close',      t.sales_can_be_close || null);
+
+            // Steps
+            let stepsHtml = '';
+            data.steps.forEach(function(step) {
+                const ts    = data.transactionSteps[step.level_id];
+                const chk   = ts ? 'checked' : '';
+                const dis   = ts ? '' : 'disabled';
+                const dateV = ts ? (ts.date || '') : '';
+                stepsHtml += `
+                <div class="col-md-3 mb-2">
+                    <div class="custom-control custom-checkbox">
+                        <input type="checkbox" class="custom-control-input ef-step-chk" id="ef_step_${step.level_id}" name="step[${step.level_id}]" value="1" ${chk}>
+                        <label class="custom-control-label" for="ef_step_${step.level_id}">${step.level}</label>
+                    </div>
+                    <input type="text" name="step_date[${step.level_id}]" class="form-control form-control-sm mt-1 ef-step-date" id="ef_step_date_${step.level_id}" data-iso="${dateV}" ${dis} readonly>
+                </div>`;
+            });
+            $('#ef_steps_container').html(stepsHtml);
+
+            // Init flatpickr for each step date
+            data.steps.forEach(function(step) {
+                const ts = data.transactionSteps[step.level_id];
+                initEfFlatpickr('#ef_step_date_' + step.level_id, ts ? ts.date : null);
+            });
+
+            // Step checkbox toggle
+            $('#ef_steps_container').off('change', '.ef-step-chk').on('change', '.ef-step-chk', function() {
+                const lid = $(this).attr('id').replace('ef_step_', '');
+                const dateInp = $('#ef_step_date_' + lid);
+                if ($(this).is(':checked')) {
+                    dateInp.prop('disabled', false);
+                } else {
+                    dateInp.prop('disabled', true).val('');
+                    if (efFlatpickrs['#ef_step_date_' + lid]) {
+                        efFlatpickrs['#ef_step_date_' + lid].clear();
+                    }
+                }
+            });
+        }).fail(function() {
+            $('#editFormAlert').text('ไม่สามารถโหลดข้อมูลได้').show();
+        });
+    }
+
+    // product_value formatter
+    $('#ef_product_value').on('input', function() {
+        let v = this.value.replace(/[^0-9.]/g, '');
+        if (v) {
+            const parts = v.split('.');
+            v = (+parts[0]).toLocaleString('en-US') + (parts[1] !== undefined ? '.' + parts[1].slice(0,2) : '');
+        }
+        this.value = v;
+    });
+
+    // Edit Form submit via AJAX
+    $('#editForm').on('submit', function(e) {
+        e.preventDefault();
+        const id = $(this).data('id');
+        if (!id) return;
+
+        $('#editFormAlert').hide();
+        $('#editFormSaveBtn').prop('disabled', true);
+        $('#editFormSaveTxt').text('กำลังบันทึก...');
+        $('#editFormSaveSpinner').show();
+
+        // Collect form data, convert dates to ISO
+        const formData = {};
+        $(this).serializeArray().forEach(function(field) {
+            // For date fields, use data-iso attribute (ISO format) instead of display value
+            const el = document.getElementsByName(field.name)[0];
+            if (el && el.hasAttribute('data-iso') && el.getAttribute('data-iso')) {
+                formData[field.name] = el.getAttribute('data-iso');
+            } else {
+                formData[field.name] = field.value;
+            }
+        });
+        // Remove comma from product_value
+        if (formData['product_value']) {
+            formData['product_value'] = formData['product_value'].replace(/,/g, '');
+        }
+
+        $.ajax({
+            url: '/user/sales/' + id + '/ajax',
+            method: 'POST',
+            data: Object.assign(formData, { _method: 'PUT', _token: '{{ csrf_token() }}' }),
+            success: function(res) {
+                if (res.success) {
+                    $('#editModal').modal('hide');
+                    table.ajax.reload(null, false); // false = stay on current page
+                } else {
+                    $('#editFormAlert').text(res.message || 'เกิดข้อผิดพลาด').show();
+                }
+            },
+            error: function(xhr) {
+                let msg = 'เกิดข้อผิดพลาด';
+                if (xhr.responseJSON) {
+                    if (xhr.responseJSON.errors) {
+                        msg = Object.values(xhr.responseJSON.errors).flat().join(' | ');
+                    } else if (xhr.responseJSON.message) {
+                        msg = xhr.responseJSON.message;
+                    }
+                }
+                $('#editFormAlert').text(msg).show();
+            },
+            complete: function() {
+                $('#editFormSaveBtn').prop('disabled', false);
+                $('#editFormSaveTxt').html('<i class="fas fa-save"></i> บันทึก');
+                $('#editFormSaveSpinner').hide();
+            }
+        });
     });
 
     function formatThaiDate(dateStr) {
@@ -328,6 +699,7 @@ $(function () {
 @stop
 
 @section('css')
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
 <link rel="stylesheet" href="https://cdn.datatables.net/1.13.7/css/dataTables.bootstrap4.min.css">
 <link rel="stylesheet" href="https://cdn.datatables.net/responsive/2.5.0/css/responsive.bootstrap4.min.css">
 <link rel="stylesheet" href="https://cdn.datatables.net/buttons/2.4.2/css/buttons.bootstrap4.min.css">

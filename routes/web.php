@@ -130,7 +130,9 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/sales/create', [UserController::class, 'createSales'])->name('sales.create');
         Route::post('/sales', [UserController::class, 'storeSales'])->name('sales.store');
         Route::get('/sales/{id}/edit', [UserController::class, 'editSales'])->name('sales.edit');
+        Route::get('/sales/{id}/edit-data', [UserController::class, 'getEditDataAjax'])->name('sales.edit.data');
         Route::put('/sales/{id}', [UserController::class, 'updateSales'])->name('sales.update');
+        Route::put('/sales/{id}/ajax', [UserController::class, 'updateSalesAjax'])->name('sales.update.ajax');
         Route::get('/profile', [UserController::class, 'profile'])->name('profile');
         Route::put('/profile', [UserController::class, 'updateProfile'])->name('profile.update');
         Route::post('/profile/toggle-2fa', [UserController::class, 'toggleTwoFactor'])->name('profile.toggle-2fa');
