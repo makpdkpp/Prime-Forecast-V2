@@ -34,7 +34,7 @@
             <table id="dataTable" class="table table-bordered table-striped">
                 <thead>
                     <tr>
-                        <th>ID</th>
+                        <th>ลำดับ</th>
                         <th>ชื่อ-นามสกุล</th>
                         <th>Email</th>
                         <th>Role</th>
@@ -47,7 +47,7 @@
                 <tbody>
                     @foreach($users as $user)
                     <tr>
-                        <td>{{ $user->user_id }}</td>
+                        <td>{{ $loop->iteration }}</td>
                         <td>{{ $user->nname }} {{ $user->surename }}</td>
                         <td>{{ $user->email }}</td>
                         <td>{{ $user->role->role ?? '-' }}</td>

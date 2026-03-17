@@ -34,7 +34,7 @@
             <table id="dataTable" class="table table-bordered table-striped">
                 <thead>
                     <tr>
-                        <th>ID</th>
+                        <th>ลำดับ</th>
                         <th>{{ $title }}</th>
                         <th>จัดการ</th>
                     </tr>
@@ -42,7 +42,7 @@
                 <tbody>
                     @foreach($data as $item)
                     <tr>
-                        <td>{{ $item->{$primaryKey} }}</td>
+                        <td>{{ $loop->iteration }}</td>
                         <td>{{ $item->{$nameField} }}</td>
                         <td>
                             <a href="{{ route($routeName . '.edit', $item->{$primaryKey}) }}" class="btn btn-sm btn-info">
