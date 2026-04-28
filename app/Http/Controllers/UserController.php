@@ -61,20 +61,18 @@ class UserController extends Controller
     public function dashboardTable(Request $request)
     {
         $userId = auth()->id();
-        
+
         // Get filter parameters — default to "all years" for table view
         $yearInput = $request->query('year');
         $hasYearParam = $request->query->has('year');
         if (!$hasYearParam || $yearInput === null || $yearInput === '' || strtolower(trim((string) $yearInput)) === 'all') {
-            $year = null;
             $selectedYear = 'all';
         } else {
-            $year = (int) $yearInput;
-            $selectedYear = (string) $year;
+            $selectedYear = (string) (int) $yearInput;
         }
         $quarter = $request->get('quarter');
-        
-        // Get available years
+
+        // Get available years (table rows are loaded via dashboardTableData AJAX)
         $availableYears = DB::table('transactional')
             ->where('user_id', $userId)
             ->select('fiscalyear')
@@ -87,31 +85,8 @@ class UserController extends Controller
             $availableYears[] = $currentYear;
             rsort($availableYears);
         }
-        
-        // Build query with filters and eager load all relationships
-        $query = Transactional::with([
-            'company', 
-            'productGroup', 
-            'team', 
-            'priority', 
-            'sourceBudget',
-            'latestStep.step'  // Fix N+1 query problem
-        ])
-            ->where('user_id', $userId);
-        
-        if ($year) {
-            $query->where('fiscalyear', $year);
-        }
-        
-        if ($quarter) {
-            $query->whereRaw('QUARTER(contact_start_date) = ?', [$quarter]);
-        }
-        
-        $transactions = $query->orderBy('updated_at', 'desc')
-            ->orderBy('transac_id', 'desc')
-            ->get();
-        
-        return view('user.dashboard_table', compact('transactions', 'availableYears', 'selectedYear', 'quarter'));
+
+        return view('user.dashboard_table', compact('availableYears', 'selectedYear', 'quarter'));
     }
 
     public function dashboardTableData(Request $request)

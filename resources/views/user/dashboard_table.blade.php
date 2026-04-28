@@ -402,18 +402,18 @@ $(function () {
             }
         },
         "columns": [
-            { data: 'project' },
-            { data: 'company' },
+            { data: 'project',  render: $.fn.dataTable.render.text() },
+            { data: 'company',  render: $.fn.dataTable.render.text() },
             { data: 'value',    render: function(v){ return Number(v || 0).toLocaleString('th-TH'); } },
-            { data: 'status' },
-            { data: 'priority' },
+            { data: 'status',   render: $.fn.dataTable.render.text() },
+            { data: 'priority', render: $.fn.dataTable.render.text() },
             { data: 'year' },
             { data: 'start',    render: function(v){ return formatThaiDate(v); } },
             { data: 'bidding',  render: function(v){ return formatThaiDate(v); } },
             { data: 'contract', render: function(v){ return formatThaiDate(v); } },
-            { data: 'product' },
-            { data: 'team' },
-            { data: 'remark' },
+            { data: 'product',  render: $.fn.dataTable.render.text() },
+            { data: 'team',     render: $.fn.dataTable.render.text() },
+            { data: 'remark',   render: $.fn.dataTable.render.text() },
             { data: 'action', orderable: false, searchable: false, className: 'text-center' }
         ],
         "buttons": [
@@ -559,23 +559,48 @@ $(function () {
             yearSel.appendChild(opt);
         }
 
-        // Steps HTML (no flatpickr yet)
-        let stepsHtml = '';
+        // Steps — built with DOM API to prevent XSS from step name
+        const stepsContainer = document.getElementById('ef_steps_container');
+        stepsContainer.innerHTML = '';
         data.steps.forEach(function(step) {
-            const ts       = data.transactionSteps[step.level_id];
-            const chk      = ts ? 'checked' : '';
-            const lockClass = ts ? '' : 'ef-step-locked';
-            const dateV    = ts ? (ts.date || '') : '';
-            stepsHtml += `
-            <div class="col-md-3 mb-2">
-                <div class="custom-control custom-checkbox">
-                    <input type="checkbox" class="custom-control-input ef-step-chk" id="ef_step_${step.level_id}" name="step[${step.level_id}]" value="1" ${chk}>
-                    <label class="custom-control-label" for="ef_step_${step.level_id}">${step.level}</label>
-                </div>
-                <input type="text" name="step_date[${step.level_id}]" class="form-control form-control-sm mt-1 ef-step-date ${lockClass}" id="ef_step_date_${step.level_id}" data-iso="${dateV}">
-            </div>`;
+            const ts        = data.transactionSteps[step.level_id];
+            const isChecked = !!ts;
+            const dateV     = ts ? (ts.date || '') : '';
+            const lvId      = parseInt(step.level_id, 10);
+
+            const col = document.createElement('div');
+            col.className = 'col-md-3 mb-2';
+
+            const chkWrap = document.createElement('div');
+            chkWrap.className = 'custom-control custom-checkbox';
+
+            const chk = document.createElement('input');
+            chk.type = 'checkbox';
+            chk.className = 'custom-control-input ef-step-chk';
+            chk.id = 'ef_step_' + lvId;
+            chk.name = 'step[' + lvId + ']';
+            chk.value = '1';
+            chk.checked = isChecked;
+
+            const lbl = document.createElement('label');
+            lbl.className = 'custom-control-label';
+            lbl.htmlFor = 'ef_step_' + lvId;
+            lbl.textContent = step.level;  // safe: textContent escapes
+
+            chkWrap.appendChild(chk);
+            chkWrap.appendChild(lbl);
+
+            const dateInp = document.createElement('input');
+            dateInp.type = 'text';
+            dateInp.name = 'step_date[' + lvId + ']';
+            dateInp.className = 'form-control form-control-sm mt-1 ef-step-date' + (isChecked ? '' : ' ef-step-locked');
+            dateInp.id = 'ef_step_date_' + lvId;
+            dateInp.setAttribute('data-iso', dateV);
+
+            col.appendChild(chkWrap);
+            col.appendChild(dateInp);
+            stepsContainer.appendChild(col);
         });
-        $('#ef_steps_container').html(stepsHtml);
 
         // Step checkbox toggle
         $('#ef_steps_container').off('change', '.ef-step-chk').on('change', '.ef-step-chk', function() {
