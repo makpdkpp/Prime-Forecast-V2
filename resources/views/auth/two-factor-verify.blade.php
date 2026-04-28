@@ -82,12 +82,14 @@
         .otp-input-container {
             display: flex;
             justify-content: center;
-            gap: 10px;
+            gap: 8px;
             margin: 25px 0;
         }
 
         .otp-input {
-            width: 50px;
+            flex: 1;
+            min-width: 36px;
+            max-width: 55px;
             height: 60px;
             text-align: center;
             font-size: 24px;
@@ -95,6 +97,13 @@
             border: 2px solid #ddd;
             border-radius: 8px;
             transition: all 0.3s ease;
+        }
+
+        @media (max-width: 360px) {
+            .otp-input {
+                height: 48px;
+                font-size: 18px;
+            }
         }
 
         .otp-input:focus {

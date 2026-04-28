@@ -22,7 +22,8 @@
                         <div class="row">
                             <div class="col-sm-12 form-group">
                                 <label for="Product_detail">ชื่อโครงการ</label>
-                                <input type="text" name="Product_detail" id="Product_detail" class="form-control" required>
+                                <input type="text" name="Product_detail" id="Product_detail" class="form-control @error('Product_detail') is-invalid @enderror" required>
+                                @error('Product_detail') <div class="invalid-feedback">{{ $message }}</div> @enderror
                             </div>
                         </div>
 
@@ -45,23 +46,25 @@
                             </div>
                             <div class="col-md-6 form-group">
                                 <label for="product_value">มูลค่า (บาท)</label>
-                                <input type="text" name="product_value" id="product_value" class="form-control" placeholder="0" required>
+                                <input type="text" name="product_value" id="product_value" class="form-control @error('product_value') is-invalid @enderror" placeholder="0" required>
+                                @error('product_value') <div class="invalid-feedback">{{ $message }}</div> @enderror
                             </div>
                         </div>
 
                         <div class="row">
                             <div class="col-md-6 form-group">
                                 <label for="Source_budget_id">แหล่งที่มาของงบประมาณ</label>
-                                <select name="Source_budget_id" id="Source_budget_id" class="form-control" required>
+                                <select name="Source_budget_id" id="Source_budget_id" class="form-control @error('Source_budget_id') is-invalid @enderror" required>
                                     <option value="">-- เลือกแหล่งที่มาของงบประมาณ --</option>
                                     @foreach($sources as $source)
                                         <option value="{{ $source->Source_budget_id }}">{{ $source->Source_budge }}</option>
                                     @endforeach
                                 </select>
+                                @error('Source_budget_id') <div class="invalid-feedback">{{ $message }}</div> @enderror
                             </div>
                             <div class="col-md-6 form-group">
                                 <label for="fiscalyear">ปีงบประมาณ</label>
-                                <select name="fiscalyear" id="fiscalyear" class="form-control" required>
+                                <select name="fiscalyear" id="fiscalyear" class="form-control @error('fiscalyear') is-invalid @enderror" required>
                                     <option value="">-- เลือกปีงบประมาณ --</option>
                                     @php
                                         $currentYear = date('Y');
@@ -72,43 +75,48 @@
                                         }
                                     @endphp
                                 </select>
+                                @error('fiscalyear') <div class="invalid-feedback">{{ $message }}</div> @enderror
                             </div>
                         </div>
 
                         <div class="row">
                             <div class="col-md-4 form-group">
                                 <label for="Product_id">กลุ่มสินค้า</label>
-                                <select name="Product_id" id="Product_id" class="form-control" required>
+                                <select name="Product_id" id="Product_id" class="form-control @error('Product_id') is-invalid @enderror" required>
                                     <option value="">-- เลือกสินค้า --</option>
                                     @foreach($products as $product)
                                         <option value="{{ $product->product_id }}">{{ $product->product }}</option>
                                     @endforeach
                                 </select>
+                                @error('Product_id') <div class="invalid-feedback">{{ $message }}</div> @enderror
                             </div>
                             <div class="col-md-4 form-group">
                                 <label for="team_id">ทีมขาย</label>
-                                <select name="team_id" id="team_id" class="form-control" required>
+                                <select name="team_id" id="team_id" class="form-control @error('team_id') is-invalid @enderror" required>
                                     <option value="">-- เลือกทีม --</option>
                                     @foreach($teams as $team)
                                         <option value="{{ $team->team_id }}">{{ $team->team }}</option>
                                     @endforeach
                                 </select>
+                                @error('team_id') <div class="invalid-feedback">{{ $message }}</div> @enderror
                             </div>
                             <div class="col-md-4 form-group">
                                 <label for="priority_id">โอกาสชนะ</label>
-                                <select name="priority_id" id="priority_id" class="form-control">
+                                <select name="priority_id" id="priority_id" class="form-control @error('priority_id') is-invalid @enderror">
                                     <option value="">-- เลือกระดับ --</option>
                                     @foreach($priorities as $priority)
                                         <option value="{{ $priority->priority_id }}">{{ $priority->priority }}</option>
                                     @endforeach
                                 </select>
+                                @error('priority_id') <div class="invalid-feedback">{{ $message }}</div> @enderror
                             </div>
                         </div>
 
                         <div class="row">
                             <div class="col-md-4 form-group">
                                 <label for="contact_start_date">วันที่เริ่มโครงการ</label>
-                                <input type="text" name="contact_start_date" id="contact_start_date" class="form-control flatpickr-thai" required readonly>
+                                <input type="text" name="contact_start_date" id="contact_start_date" class="form-control flatpickr-thai @error('contact_start_date') is-invalid @enderror" required readonly>
+                                @error('contact_start_date') <div class="invalid-feedback">{{ $message }}</div> @enderror
                             </div>
                             <div class="col-md-4 form-group">
                                 <label for="date_of_closing_of_sale">วันที่คาดว่าจะ Bidding</label>

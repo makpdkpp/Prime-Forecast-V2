@@ -1064,18 +1064,23 @@ class AdminController extends Controller
                 $avatar = $request->file('avatar');
                 
                 // Additional security checks
-                $allowedMimeTypes = ['image/jpeg', 'image/png', 'image/jpg'];
-                if (!in_array($avatar->getMimeType(), $allowedMimeTypes)) {
-                    return redirect()->back()->with('error', 'ไฟล์ต้องเป็นรูปภาพ (JPEG, PNG, JPG) เท่านั้น');
+                $mimeToExtension = [
+                    'image/jpeg' => 'jpg',
+                    'image/jpg'  => 'jpg',
+                    'image/png'  => 'png',
+                ];
+                $mimeType = $avatar->getMimeType();
+                if (!array_key_exists($mimeType, $mimeToExtension)) {
+                    return redirect()->back()->with('error', 'ไฟล์ต้องเป็นรูปภาพ (JPEG, PNG) เท่านั้น');
                 }
-                
+
                 // Check file size (max 2MB)
                 if ($avatar->getSize() > 2048 * 1024) {
                     return redirect()->back()->with('error', 'ไฟล์มีขนาดใหญ่เกินไป (สูงสุด 2MB)');
                 }
-                
-                // Generate secure filename
-                $extension = $avatar->getClientOriginalExtension();
+
+                // Derive extension from MIME type (not from user-supplied filename)
+                $extension = $mimeToExtension[$mimeType];
                 $fileName = 'user_' . $user->user_id . '_' . time() . '_' . bin2hex(random_bytes(8)) . '.' . $extension;
                 
                 $uploadPath = public_path('uploads' . DIRECTORY_SEPARATOR . 'avatars');

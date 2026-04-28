@@ -46,9 +46,13 @@ class MigrationController extends Controller
 
     public function run(Request $request)
     {
+        if (app()->isProduction()) {
+            return response()->json(['success' => false, 'message' => 'ไม่อนุญาตให้รัน Migration ผ่านเว็บในสภาพแวดล้อม Production'], 403);
+        }
+
         try {
             ob_start();
-            
+
             Artisan::call('migrate', ['--force' => true]);
             
             $output = Artisan::output();
@@ -76,9 +80,18 @@ class MigrationController extends Controller
 
     public function runSingle(Request $request, $migration)
     {
+        if (app()->isProduction()) {
+            return response()->json(['success' => false, 'message' => 'ไม่อนุญาตให้รัน Migration ผ่านเว็บในสภาพแวดล้อม Production'], 403);
+        }
+
+        $allowedMigrations = $this->getMigrationFiles();
+        if (!in_array($migration, $allowedMigrations, true)) {
+            return response()->json(['success' => false, 'message' => 'Migration ไม่ถูกต้อง'], 422);
+        }
+
         try {
             ob_start();
-            
+
             Artisan::call('migrate', [
                 '--path' => 'database/migrations/' . $migration . '.php',
                 '--force' => true
@@ -109,6 +122,10 @@ class MigrationController extends Controller
 
     public function rollback(Request $request)
     {
+        if (app()->isProduction()) {
+            return response()->json(['success' => false, 'message' => 'ไม่อนุญาตให้ Rollback ผ่านเว็บในสภาพแวดล้อม Production'], 403);
+        }
+
         $request->validate([
             'confirm' => 'required|accepted'
         ]);
@@ -143,16 +160,21 @@ class MigrationController extends Controller
 
     public function schema()
     {
+        if (app()->isProduction()) {
+            return response()->json(['success' => false, 'message' => 'ไม่อนุญาตให้ดู Schema ผ่านเว็บในสภาพแวดล้อม Production'], 403);
+        }
+
         try {
             $tables = DB::select('SHOW TABLES');
             $databaseName = DB::getDatabaseName();
             $tableKey = 'Tables_in_' . $databaseName;
-            
+
             $schema = [];
             foreach ($tables as $table) {
                 $tableName = $table->$tableKey;
-                $columns = DB::select("DESCRIBE {$tableName}");
-                $indexes = DB::select("SHOW INDEX FROM {$tableName}");
+                $escapedName = '`' . str_replace('`', '``', $tableName) . '`';
+                $columns = DB::select("DESCRIBE {$escapedName}");
+                $indexes = DB::select("SHOW INDEX FROM {$escapedName}");
                 $rowCount = DB::table($tableName)->count();
                 
                 $schema[] = [
