@@ -10,7 +10,7 @@ class RegistrationController extends Controller
 {
     public function showRegistrationForm($token)
     {
-        $user = User::where('reset_token', $token)
+        $user = User::where('reset_token', hash('sha256', $token))
             ->where('token_expiry', '>', now())
             ->first();
 
@@ -23,7 +23,7 @@ class RegistrationController extends Controller
 
     public function register(Request $request, $token)
     {
-        $user = User::where('reset_token', $token)
+        $user = User::where('reset_token', hash('sha256', $token))
             ->where('token_expiry', '>', now())
             ->first();
 

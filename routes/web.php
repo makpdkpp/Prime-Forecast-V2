@@ -53,8 +53,8 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/dashboard/win-projects/{userId}', [AdminController::class, 'winProjectsByUser'])->name('dashboard.winProjects');
         Route::get('/dashboard/chart-detail', [AdminController::class, 'chartDetail'])->name('dashboard.chartDetail');
         Route::get('/sales/{id}/edit', [AdminController::class, 'editSales'])->name('sales.edit');
-        Route::put('/sales/{id}', [AdminController::class, 'updateSales'])->name('sales.update');
-        Route::delete('/sales/{id}', [AdminController::class, 'deleteSales'])->name('sales.delete');
+        Route::put('/sales/{id}', [AdminController::class, 'updateSales'])->middleware('throttle:30,1')->name('sales.update');
+        Route::delete('/sales/{id}', [AdminController::class, 'deleteSales'])->middleware('throttle:30,1')->name('sales.delete');
         Route::get('/sales/{id}/transfer', [AdminController::class, 'transferSales'])->name('sales.transfer');
         Route::post('/sales/{id}/transfer', [AdminController::class, 'processTransfer'])->name('sales.transfer.process');
         Route::get('/sales/{id}/transfer-history', [AdminController::class, 'getTransferHistory'])->name('sales.transfer.history');
@@ -106,7 +106,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/dashboard/table/data', [TeamAdminController::class, 'dashboardTableData'])->name('dashboard.table.data');
         Route::get('/dashboard/chart-detail', [TeamAdminController::class, 'chartDetail'])->name('dashboard.chartDetail');
         Route::get('/sales/{id}/edit', [TeamAdminController::class, 'editSales'])->name('sales.edit');
-        Route::put('/sales/{id}', [TeamAdminController::class, 'updateSales'])->name('sales.update');
+        Route::put('/sales/{id}', [TeamAdminController::class, 'updateSales'])->middleware('throttle:30,1')->name('sales.update');
         Route::get('/profile', [TeamAdminController::class, 'profile'])->name('profile');
         Route::put('/profile', [TeamAdminController::class, 'updateProfile'])->name('profile.update');
         Route::post('/profile/toggle-2fa', [TeamAdminController::class, 'toggleTwoFactor'])->name('profile.toggle-2fa');
@@ -127,9 +127,9 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/dashboard/chart-detail', [UserController::class, 'chartDetail'])->name('dashboard.chartDetail');
         Route::get('/dashboard/win-projects', [UserController::class, 'winProjects'])->name('dashboard.winProjects');
         Route::get('/sales/create', [UserController::class, 'createSales'])->name('sales.create');
-        Route::post('/sales', [UserController::class, 'storeSales'])->name('sales.store');
+        Route::post('/sales', [UserController::class, 'storeSales'])->middleware('throttle:30,1')->name('sales.store');
         Route::get('/sales/{id}/edit', [UserController::class, 'editSales'])->name('sales.edit');
-        Route::put('/sales/{id}', [UserController::class, 'updateSales'])->name('sales.update');
+        Route::put('/sales/{id}', [UserController::class, 'updateSales'])->middleware('throttle:30,1')->name('sales.update');
         Route::get('/profile', [UserController::class, 'profile'])->name('profile');
         Route::put('/profile', [UserController::class, 'updateProfile'])->name('profile.update');
         Route::post('/profile/toggle-2fa', [UserController::class, 'toggleTwoFactor'])->name('profile.toggle-2fa');

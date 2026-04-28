@@ -578,18 +578,23 @@ class UserController extends Controller
                 $avatar = $request->file('avatar');
                 
                 // Additional security checks
-                $allowedMimeTypes = ['image/jpeg', 'image/png', 'image/jpg'];
-                if (!in_array($avatar->getMimeType(), $allowedMimeTypes)) {
-                    return redirect()->back()->with('error', 'ไฟล์ต้องเป็นรูปภาพ (JPEG, PNG, JPG) เท่านั้น');
+                $mimeToExtension = [
+                    'image/jpeg' => 'jpg',
+                    'image/jpg'  => 'jpg',
+                    'image/png'  => 'png',
+                ];
+                $mimeType = $avatar->getMimeType();
+                if (!array_key_exists($mimeType, $mimeToExtension)) {
+                    return redirect()->back()->with('error', 'ไฟล์ต้องเป็นรูปภาพ (JPEG, PNG) เท่านั้น');
                 }
-                
+
                 // Check file size (max 2MB)
                 if ($avatar->getSize() > 2048 * 1024) {
                     return redirect()->back()->with('error', 'ไฟล์มีขนาดใหญ่เกินไป (สูงสุด 2MB)');
                 }
-                
-                // Generate secure filename
-                $extension = $avatar->getClientOriginalExtension();
+
+                // Derive extension from MIME type (not from user-supplied filename)
+                $extension = $mimeToExtension[$mimeType];
                 $fileName = 'user_' . $user->user_id . '_' . time() . '_' . bin2hex(random_bytes(8)) . '.' . $extension;
                 
                 // Create directory if not exists (cross-platform)
@@ -640,16 +645,22 @@ class UserController extends Controller
                 $companyName = $request->company_name;
                 $notes = $request->notes ?? '';
 
-                Mail::send([], [], function ($message) use ($adminEmails, $userEmail, $companyName, $notes) {
+                $safeEmail       = htmlspecialchars($userEmail, ENT_QUOTES, 'UTF-8');
+                $safeCompanyName = htmlspecialchars($companyName, ENT_QUOTES, 'UTF-8');
+                $safeNotes       = nl2br(htmlspecialchars($notes, ENT_QUOTES, 'UTF-8'));
+                $fromAddress     = config('mail.from.address', 'no-reply@primeforecast.com');
+                $fromName        = config('mail.from.name', 'PrimeForecast System');
+
+                Mail::send([], [], function ($message) use ($adminEmails, $safeEmail, $safeCompanyName, $safeNotes, $fromAddress, $fromName) {
                     $message->to($adminEmails)
                         ->subject('มีคำขอเพิ่มบริษัทใหม่')
-                        ->from('no-reply@primeforecast.com', 'PrimeForecast System')
+                        ->from($fromAddress, $fromName)
                         ->html("
                             <h2>มีคำขอเพิ่มบริษัทใหม่เข้าระบบ</h2>
-                            <p>คุณ <strong>{$userEmail}</strong> ได้ส่งคำขอเพิ่มข้อมูลบริษัทใหม่ ดังนี้:</p>
+                            <p>คุณ <strong>{$safeEmail}</strong> ได้ส่งคำขอเพิ่มข้อมูลบริษัทใหม่ ดังนี้:</p>
                             <hr>
-                            <p><strong>ชื่อบริษัทที่ขอเพิ่ม:</strong> {$companyName}</p>
-                            <p><strong>รายละเอียดเพิ่มเติม:</strong><br>{$notes}</p>
+                            <p><strong>ชื่อบริษัทที่ขอเพิ่ม:</strong> {$safeCompanyName}</p>
+                            <p><strong>รายละเอียดเพิ่มเติม:</strong><br>{$safeNotes}</p>
                             <hr>
                             <p>กรุณาเข้าระบบเพื่อตรวจสอบและดำเนินการอนุมัติคำขอนี้</p>
                         ");

@@ -35,7 +35,7 @@ class AuthController extends Controller
             $token = Str::random(64);
 
             $user->update([
-                'reset_token' => $token,
+                'reset_token' => hash('sha256', $token),
                 'token_expiry' => now()->addHour(),
             ]);
 
@@ -51,7 +51,7 @@ class AuthController extends Controller
 
         $user = User::query()
             ->where('email', $email)
-            ->where('reset_token', $token)
+            ->where('reset_token', hash('sha256', $token))
             ->where('token_expiry', '>', now())
             ->first();
 
@@ -71,7 +71,7 @@ class AuthController extends Controller
 
         $user = User::query()
             ->where('email', $data['email'])
-            ->where('reset_token', $token)
+            ->where('reset_token', hash('sha256', $token))
             ->where('token_expiry', '>', now())
             ->first();
 
@@ -111,14 +111,22 @@ class AuthController extends Controller
 
         $valid = false;
 
+        $usingLegacyMd5 = false;
+
         if ($stored !== '' && str_starts_with($stored, '$2y$')) {
             $valid = Hash::check($rawPassword, $stored);
         } elseif ($stored !== '') {
             $valid = hash_equals(md5($rawPassword), $stored);
+            $usingLegacyMd5 = $valid;
         }
 
         if (!$valid) {
             return back()->withErrors(['email' => 'อีเมลหรือรหัสผ่านไม่ถูกต้อง'])->onlyInput('email');
+        }
+
+        // Silently upgrade MD5 hash to bcrypt on successful login
+        if ($usingLegacyMd5) {
+            $user->update(['password' => Hash::make($rawPassword)]);
         }
 
         // Check if 2FA is enabled

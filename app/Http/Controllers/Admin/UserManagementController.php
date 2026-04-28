@@ -53,7 +53,7 @@ class UserManagementController extends Controller
             'role_id' => $request->role_id,
             'position_id' => $request->position_id,
             'is_active' => 0, // Inactive until user sets password
-            'reset_token' => $token,
+            'reset_token' => hash('sha256', $token),
             'token_expiry' => $tokenExpiry,
             'avatar_path' => null,
             'two_factor_enabled' => 0,
