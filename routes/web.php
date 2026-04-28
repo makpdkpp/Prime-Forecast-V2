@@ -124,12 +124,15 @@ Route::middleware(['auth'])->group(function () {
     Route::middleware(['user'])->prefix('user')->name('user.')->group(function () {
         Route::get('/dashboard', [UserController::class, 'dashboard'])->name('dashboard');
         Route::get('/dashboard/table', [UserController::class, 'dashboardTable'])->name('dashboard.table');
+        Route::get('/dashboard/table/data', [UserController::class, 'dashboardTableData'])->name('dashboard.table.data');
         Route::get('/dashboard/chart-detail', [UserController::class, 'chartDetail'])->name('dashboard.chartDetail');
         Route::get('/dashboard/win-projects', [UserController::class, 'winProjects'])->name('dashboard.winProjects');
         Route::get('/sales/create', [UserController::class, 'createSales'])->name('sales.create');
         Route::post('/sales', [UserController::class, 'storeSales'])->middleware('throttle:30,1')->name('sales.store');
         Route::get('/sales/{id}/edit', [UserController::class, 'editSales'])->name('sales.edit');
+        Route::get('/sales/{id}/edit-data', [UserController::class, 'getEditDataAjax'])->name('sales.edit.data');
         Route::put('/sales/{id}', [UserController::class, 'updateSales'])->middleware('throttle:30,1')->name('sales.update');
+        Route::put('/sales/{id}/ajax', [UserController::class, 'updateSalesAjax'])->middleware('throttle:30,1')->name('sales.update.ajax');
         Route::get('/profile', [UserController::class, 'profile'])->name('profile');
         Route::put('/profile', [UserController::class, 'updateProfile'])->name('profile.update');
         Route::post('/profile/toggle-2fa', [UserController::class, 'toggleTwoFactor'])->name('profile.toggle-2fa');

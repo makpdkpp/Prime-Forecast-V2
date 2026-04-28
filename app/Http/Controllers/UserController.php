@@ -114,6 +114,131 @@ class UserController extends Controller
         return view('user.dashboard_table', compact('transactions', 'availableYears', 'selectedYear', 'quarter'));
     }
 
+    public function dashboardTableData(Request $request)
+    {
+        $userId = auth()->id();
+        $year    = $request->get('year');
+        $quarter = $request->get('quarter');
+
+        $draw   = (int) $request->input('draw', 1);
+        $start  = max((int) $request->input('start', 0), 0);
+        $length = (int) $request->input('length', 25);
+        if ($length <= 0 || $length > 200) {
+            $length = 25;
+        }
+
+        $base = DB::table('transactional as t')
+            ->whereNull('t.deleted_at')
+            ->where('t.user_id', $userId)
+            ->leftJoin('company_catalog as c',        't.company_id',        '=', 'c.company_id')
+            ->leftJoin('product_group as pg',         't.Product_id',        '=', 'pg.product_id')
+            ->leftJoin('team_catalog as tc',          't.team_id',           '=', 'tc.team_id')
+            ->leftJoin('priority_level as pl',        't.priority_id',       '=', 'pl.priority_id')
+            ->leftJoin('source_of_the_budget as sb',  't.Source_budget_id',  '=', 'sb.Source_budget_id')
+            ->leftJoin('step as s',                   't.Step_id',           '=', 's.level_id');
+
+        if ($year) {
+            $base->where('t.fiscalyear', $year);
+        }
+        if ($quarter) {
+            $base->whereRaw('QUARTER(t.contact_start_date) = ?', [$quarter]);
+        }
+
+        $total = (clone $base)->count('t.transac_id');
+
+        $searchValue = trim((string) data_get($request->input('search'), 'value', ''));
+        if ($searchValue !== '') {
+            $base->where(function ($q) use ($searchValue) {
+                $like = '%' . $searchValue . '%';
+                $q->where('t.Product_detail',  'like', $like)
+                  ->orWhere('c.company',        'like', $like)
+                  ->orWhere('pg.product',        'like', $like)
+                  ->orWhere('s.level',           'like', $like)
+                  ->orWhere('pl.priority',       'like', $like)
+                  ->orWhere('tc.team',           'like', $like)
+                  ->orWhere('t.remark',          'like', $like);
+            });
+        }
+
+        $filtered = (clone $base)->count('t.transac_id');
+
+        $orderMap = [
+            0  => 't.Product_detail',
+            1  => 'c.company',
+            2  => 't.product_value',
+            3  => 's.level',
+            4  => 'pl.priority',
+            5  => 't.fiscalyear',
+            6  => 't.contact_start_date',
+            7  => 't.date_of_closing_of_sale',
+            8  => 't.sales_can_be_close',
+            9  => 'pg.product',
+            10 => 'tc.team',
+            11 => 't.remark',
+        ];
+
+        $orderCol = (int) data_get($request->input('order'), '0.column', 6);
+        $orderDir = strtolower((string) data_get($request->input('order'), '0.dir', 'desc')) === 'asc' ? 'asc' : 'desc';
+        $orderBy  = $orderMap[$orderCol] ?? 't.updated_at';
+
+        $rows = $base
+            ->select([
+                't.transac_id',
+                't.Product_detail',
+                't.product_value',
+                't.fiscalyear',
+                't.contact_start_date',
+                't.date_of_closing_of_sale',
+                't.sales_can_be_close',
+                't.remark',
+                't.contact_person',
+                't.contact_phone',
+                't.contact_email',
+                'c.company',
+                'pg.product as product_name',
+                'tc.team',
+                'pl.priority',
+                'sb.Source_budge as source_budget',
+                's.level as step_level',
+            ])
+            ->orderBy($orderBy, $orderDir)
+            ->orderBy('t.transac_id', 'desc')
+            ->offset($start)
+            ->limit($length)
+            ->get();
+
+        $data = $rows->map(function ($r) {
+            $id = (int) $r->transac_id;
+            return [
+                'id'             => $id,
+                'project'        => $r->Product_detail,
+                'company'        => $r->company        ?? '-',
+                'value'          => (float) $r->product_value,
+                'status'         => $r->step_level     ?? '-',
+                'priority'       => $r->priority       ?? '-',
+                'year'           => $r->fiscalyear ? ((int) $r->fiscalyear + 543) : '-',
+                'start'          => $r->contact_start_date,
+                'bidding'        => $r->date_of_closing_of_sale,
+                'contract'       => $r->sales_can_be_close,
+                'product'        => $r->product_name   ?? '-',
+                'team'           => $r->team            ?? '-',
+                'source'         => $r->source_budget  ?? '-',
+                'contact_person' => $r->contact_person ?? '-',
+                'contact_phone'  => $r->contact_phone  ?? '-',
+                'contact_email'  => $r->contact_email  ?? '-',
+                'remark'         => $r->remark          ?? '-',
+                'action'         => '<a href="' . route('user.sales.edit', $id) . '" class="btn btn-sm btn-info" title="แก้ไข"><i class="fas fa-pencil-alt"></i></a>',
+            ];
+        })->values();
+
+        return response()->json([
+            'draw'            => $draw,
+            'recordsTotal'    => $total,
+            'recordsFiltered' => $filtered,
+            'data'            => $data,
+        ]);
+    }
+
     public function chartDetail(Request $request)
     {
         $userId = auth()->id();
@@ -455,6 +580,117 @@ class UserController extends Controller
             'teams',
             'transactionSteps'
         ));
+    }
+
+    public function getEditDataAjax($id)
+    {
+        $transaction = Transactional::where('transac_id', $id)
+            ->where('user_id', auth()->id())
+            ->firstOrFail();
+
+        $companies  = \Cache::remember('companies_list',  3600, fn() => CompanyCatalog::orderBy('company')->get());
+        $products   = \Cache::remember('products_list',   3600, fn() => ProductGroup::orderBy('product')->get());
+        $priorities = \Cache::remember('priorities_list', 3600, fn() => PriorityLevel::orderBy('priority')->get());
+        $sources    = \Cache::remember('sources_list',    3600, fn() => SourceBudget::orderBy('Source_budge')->get());
+        $steps      = \Cache::remember('steps_list',      3600, fn() => Step::orderBy('orderlv')->get());
+
+        $teamIds = TransactionalTeam::where('user_id', auth()->id())->pluck('team_id');
+        $teams   = TeamCatalog::whereIn('team_id', $teamIds)->orderBy('team')->get();
+
+        $transactionSteps = TransactionalStep::where('transac_id', $id)
+            ->get()
+            ->keyBy('level_id')
+            ->map(fn($ts) => [
+                'level_id' => $ts->level_id,
+                'date'     => $ts->date ? \Carbon\Carbon::parse($ts->date)->format('Y-m-d') : null,
+            ]);
+
+        return response()->json([
+            'transaction'      => $transaction,
+            'companies'        => $companies,
+            'products'         => $products,
+            'priorities'       => $priorities,
+            'sources'          => $sources,
+            'steps'            => $steps->map(fn($s) => ['level_id' => $s->level_id, 'level' => $s->level]),
+            'teams'            => $teams,
+            'transactionSteps' => $transactionSteps,
+        ]);
+    }
+
+    public function updateSalesAjax(Request $request, $id)
+    {
+        $transaction = Transactional::where('transac_id', $id)
+            ->where('user_id', auth()->id())
+            ->firstOrFail();
+
+        $validator = \Validator::make($request->all(), [
+            'Product_detail'           => 'required|max:255',
+            'company_id'               => 'required|integer',
+            'product_value'            => 'required',
+            'Source_budget_id'         => 'required|integer',
+            'fiscalyear'               => 'required|integer',
+            'Product_id'               => 'required|integer',
+            'team_id'                  => 'required|integer',
+            'priority_id'              => 'nullable|integer',
+            'contact_start_date'       => 'required|date',
+            'date_of_closing_of_sale'  => 'nullable|date',
+            'sales_can_be_close'       => 'nullable|date',
+            'step_date'                => 'nullable|array',
+            'step_date.*'              => 'nullable|date',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['success' => false, 'errors' => $validator->errors()], 422);
+        }
+
+        try {
+            $productValue = str_replace(',', '', $request->product_value);
+
+            $stepId = null;
+            if ($request->has('step') && is_array($request->step)) {
+                $selectedSteps = array_keys(array_filter($request->step));
+                if (!empty($selectedSteps)) {
+                    $stepId = max($selectedSteps);
+                }
+            }
+
+            $transaction->update([
+                'company_id'               => $request->company_id,
+                'Product_id'               => $request->Product_id,
+                'team_id'                  => $request->team_id,
+                'priority_id'              => $request->priority_id,
+                'Source_budget_id'         => $request->Source_budget_id,
+                'Product_detail'           => $request->Product_detail,
+                'product_value'            => $productValue,
+                'fiscalyear'               => $request->fiscalyear,
+                'contact_start_date'       => $request->contact_start_date,
+                'date_of_closing_of_sale'  => $request->date_of_closing_of_sale ?: null,
+                'sales_can_be_close'       => $request->sales_can_be_close ?: null,
+                'remark'                   => $request->remark ?? '',
+                'contact_person'           => $request->contact_person,
+                'contact_phone'            => $request->contact_phone,
+                'contact_email'            => $request->contact_email,
+                'contact_note'             => $request->contact_note,
+                'Step_id'                  => $stepId ?? $transaction->Step_id,
+            ]);
+
+            TransactionalStep::where('transac_id', $id)->delete();
+            if ($request->has('step') && is_array($request->step)) {
+                foreach ($request->step as $levelId => $value) {
+                    if ($value && isset($request->step_date[$levelId]) && $request->step_date[$levelId]) {
+                        TransactionalStep::create([
+                            'transac_id' => $id,
+                            'level_id'   => $levelId,
+                            'date'       => $request->step_date[$levelId],
+                        ]);
+                    }
+                }
+            }
+
+            return response()->json(['success' => true, 'message' => 'อัพเดทข้อมูลเรียบร้อยแล้ว']);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => 'เกิดข้อผิดพลาด: ' . $e->getMessage()], 500);
+        }
     }
 
     public function updateSales(Request $request, $id)
