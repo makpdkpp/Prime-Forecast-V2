@@ -12,11 +12,13 @@
 
 ## เทคโนโลยี
 
-- Laravel 10 (PHP 8.1+)
+- Laravel 12 (PHP ~8.2.35 / ~8.3.36 / ~8.4.27 / ~8.5.12)
 - AdminLTE 3 + Bootstrap
 - MySQL/MariaDB
 
 ## การติดตั้ง
+
+ก่อน deploy อ่าน [แพตช์ PHP2Shell และการตั้งค่า PHP บนโฮสต์](deploy/PHP2SHELL.md)
 
 ```bash
 composer install
